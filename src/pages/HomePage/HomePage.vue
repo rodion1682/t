@@ -7,9 +7,9 @@ import axios from '@/plugins/axios'
 
 import CategorySection from '@/pages/HomePage/components/CategorySection.vue'
 import HeroSection from '@/pages/HomePage/components/HeroSection.vue'
-import ApartSection from './components/ApartSection.vue'
 import DropSection from './components/DropSection.vue'
 import ListingSection from './components/ListingSection.vue'
+import MarketSection from './components/MarketSection.vue'
 import StartSection from './components/StartSection.vue'
 
 const { t } = useI18n()
@@ -257,7 +257,7 @@ onMounted(loadHome)
 
       <DropSection v-if="dropItem" :item="dropItem" />
 
-      <ApartSection />
+      <MarketSection />
 
       <StartSection />
     </template>
