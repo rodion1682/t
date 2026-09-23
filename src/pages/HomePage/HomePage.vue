@@ -1,15 +1,16 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import axios from '@/plugins/axios'
 
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import CategorySection from '@/pages/HomePage/components/CategorySection.vue'
 import HeroSection from '@/pages/HomePage/components/HeroSection.vue'
-import { useI18n } from 'vue-i18n'
 import ApartSection from './components/ApartSection.vue'
-import HowSection from './components/HowSection.vue'
+import DropSection from './components/DropSection.vue'
+import ListingSection from './components/ListingSection.vue'
 import StartSection from './components/StartSection.vue'
-import WhySection from './components/WhySection.vue'
 
 const { t } = useI18n()
 
@@ -44,9 +45,9 @@ const MARKET_CATEGORIES = [
 
 const HERO_TYPES = ['gloves', 'pistol', 'rifle']
 
-const loading = ref(false)
+const loading = ref(true)
 const filterData = ref(null)
-const totalItems = ref(0)
+const totalItems = ref(null)
 const categoryData = ref({})
 const heroItems = ref([])
 
@@ -55,11 +56,28 @@ const categories = computed(() => {
     ...category,
     number: String(index + 1).padStart(2, '0'),
     total: categoryData.value[category.key]?.total || 0,
+    item: categoryData.value[category.key]?.item || null,
   }))
 })
 
 const categoryCount = computed(() => {
   return filterData.value?.types?.length || 0
+})
+
+const homeDataReady = computed(() => {
+  const hasFilterData = Boolean(filterData.value)
+
+  const hasTotalItems = totalItems.value !== null
+
+  const hasCategories = MARKET_CATEGORIES.every(category => {
+    return categoryData.value[category.key]
+  })
+
+  const hasHeroItems = HERO_TYPES.every(type => {
+    return heroItems.value.some(item => item.heroType === type)
+  })
+
+  return hasFilterData && hasTotalItems && hasCategories && hasHeroItems
 })
 
 const fetchFilterData = async () => {
@@ -86,7 +104,7 @@ const fetchCategory = async category => {
       params: {
         category: CATEGORY,
         type: category.key,
-        random: HERO_TYPES.includes(category.key) ? 1 : undefined,
+        random: 1,
         page: 1,
         limit: 10,
       },
@@ -181,17 +199,26 @@ onMounted(loadHome)
 
 <template>
   <div class="home">
-    <HeroSection
-      :loading="loading"
-      :hero-items="heroItems"
-      :total-items="totalItems"
-      :category-count="categoryCount"
-    />
+    <div v-if="loading" class="home__loader">
+      <LoadingSpinner />
+    </div>
 
-    <CategorySection :loading="loading" :categories="categories" />
+    <template v-else-if="homeDataReady">
+      <HeroSection
+        :hero-items="heroItems"
+        :total-items="totalItems"
+        :category-count="categoryCount"
+      />
 
-    <HowSection />
-    <WhySection />
+      <CategorySection
+        :categories="categories"
+        :category-count="categoryCount"
+      />
+    </template>
+
+    <ListingSection />
+    <DropSection />
+
     <ApartSection />
     <StartSection />
   </div>
@@ -201,4 +228,13 @@ onMounted(loadHome)
 @use '@/assets/styles/mixins' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
+
+.home {
+  &__loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 500px;
+  }
+}
 </style>

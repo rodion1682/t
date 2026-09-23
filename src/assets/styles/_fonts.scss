@@ -16,11 +16,13 @@
 }
 
 @mixin font-h3 {
-  @include adaptiveValue('font-size', 24, 22);
+  @include adaptiveValue('font-size', 36, 24);
+  @include adaptiveValue('line-height', 45, 28);
 }
 
 @mixin font-h2 {
-  @include adaptiveValue('font-size', 50, 24);
+  @include adaptiveValue('font-size', 40, 24);
+  @include adaptiveValue('line-height', 45, 28);
 }
 
 @mixin font-h1 {
@@ -39,11 +41,11 @@
 
 ._h1 {
   letter-spacing: -1.08px;
-  color: var(--cod-gray);
   @include font-h1;
 }
 
 ._h2 {
+  letter-spacing: -0.6px;
   @include font-h2;
 }
 
@@ -86,6 +88,21 @@
 }
 
 // space grotesk
+
+@mixin sg-36-700 {
+  font-family: var(--font-space-grotesk);
+  font-weight: 700;
+  @include adaptiveValue('font-size', 36, 26);
+  @include adaptiveValue('line-height', 40, 30);
+  letter-spacing: -0.54px;
+}
+
+@mixin sg-26-700 {
+  font-family: var(--font-space-grotesk);
+  font-weight: 700;
+  @include adaptiveValue('font-size', 26, 23);
+  @include adaptiveValue('line-height', 40, 30);
+}
 
 @mixin sg-20-700 {
   font-family: var(--font-space-grotesk);
