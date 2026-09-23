@@ -1,107 +1,179 @@
 <template>
   <footer class="footer">
     <div class="footer__inner _cnt">
-      <div class="footer__info">
-        <RouterLink
-          :to="{ name: 'HomePage' }"
-          class="footer__logo _ibg-contain"
-        >
-          <img src="@/assets/img/logo-full.svg" />
-        </RouterLink>
-        <div
-          v-if="formattedRequisites"
-          class="footer__requisites"
-          v-html="formattedRequisites"
-        />
-      </div>
-      <div class="footer__links">
-        <div class="footer__label">{{ $t('Market') }}</div>
-        <template v-if="true">
-          <RouterLink :to="{ name: 'ProductListPage' }" class="footer__link">
-            {{ $t('All items') }}
+      <div class="footer__main">
+        <div class="footer__brand">
+          <RouterLink :to="{ name: 'HomePage' }" class="footer__logo">
+            <img src="@/assets/img/logo-full.svg" alt="OchraSkins" />
           </RouterLink>
-          <button type="button" class="footer__link">
-            {{ $t('Categories') }}
-          </button>
-          <button type="button" class="footer__link">
-            {{ $t('Weekly drops') }}
-          </button>
-        </template>
-        <template v-else>
-          <RouterLink :to="{ name: 'ProductListPage' }" class="footer__link">
-            {{ $t('Buy skins') }}
-          </RouterLink>
-          <button
-            v-if="isOfferEnabled && false"
-            type="button"
-            class="footer__link"
-            :class="{ active: isSellSkinActive }"
-            @click="openSellSkins"
-          >
-            {{ $t('Sell Skins') }}
-          </button>
-        </template>
 
-        <RouterLink v-if="false" :to="{ name: 'FAQ' }" class="footer__link">
-          {{ $t('FAQ') }}
-        </RouterLink>
-        <RouterLink
-          v-if="false"
-          :to="{ name: 'ContactPage' }"
-          class="footer__link"
-        >
-          {{ $t('Contact us') }}
-        </RouterLink>
-        <RouterLink
-          v-if="false"
-          :to="{ name: 'HomePage' }"
-          class="footer__link"
-        >
-          {{ $t('Home') }}
-        </RouterLink>
-      </div>
-      <div class="footer__links">
-        <div class="footer__label">{{ $t('Account') }}</div>
-        <template></template>
-      </div>
-      <div class="footer__top">
-        <div v-if="sortedStaticPages.length" class="footer__links">
-          <template v-for="page in sortedStaticPages" :key="page.id">
-            <button
-              v-if="isCookiePage(page)"
-              type="button"
-              class="footer__link footer__link_button"
-              @click="openCookieSettings"
-            >
-              {{ page.title }}
-            </button>
-            <RouterLink
-              v-else
-              :to="getStaticPagePath(page)"
-              class="footer__link"
-              :class="{ active: isStaticPageActive(page) }"
-            >
-              {{ page.title }}
-            </RouterLink>
-          </template>
+          <p class="footer__description">
+            {{ $t('A marketplace for Counter-Strike 2 items.') }}
+            <br />
+            {{ $t('Not affiliated with Valve Corporation.') }}
+          </p>
         </div>
 
-        <div class="footer__about">
-          <a :href="supportEmailHref" class="footer__email">
-            <SvgIcon :icon="EmailIcon" class="footer__email-icon" />
-            <span>{{ supportEmail }}</span>
-          </a>
-          <div v-if="socialLinks.length" class="footer__socials">
-            <a
-              v-for="social in socialLinks"
-              :key="social.id"
-              :href="social.link"
-              class="footer__socials-link _ibg-contain"
-              target="_blank"
-              rel="noopener noreferrer"
+        <div class="footer__column">
+          <div class="footer__title">
+            {{ $t('Market') }}
+          </div>
+
+          <div class="footer__links">
+            <template v-if="isHomePage">
+              <RouterLink
+                :to="{
+                  name: 'ProductListPage',
+                  query: {
+                    category: 'cs2',
+                  },
+                }"
+                class="footer__link"
+              >
+                {{ $t('All items') }}
+              </RouterLink>
+
+              <button
+                type="button"
+                class="footer__link"
+                @click="goToHomeSection('categories')"
+              >
+                {{ $t('Categories') }}
+              </button>
+
+              <button
+                type="button"
+                class="footer__link"
+                @click="goToHomeSection('weekly-drops')"
+              >
+                {{ $t('Weekly drops') }}
+              </button>
+            </template>
+
+            <template v-else>
+              <RouterLink
+                :to="{
+                  name: 'ProductListPage',
+                  query: {
+                    category: 'cs2',
+                  },
+                }"
+                class="footer__link"
+              >
+                {{ $t('Buy skins') }}
+              </RouterLink>
+
+              <button
+                v-if="isOfferEnabled"
+                type="button"
+                class="footer__link"
+                @click="openSellSkins"
+              >
+                {{ $t('Sell skins') }}
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <div class="footer__column">
+          <div class="footer__title">
+            {{ $t('Account') }}
+          </div>
+
+          <div class="footer__links">
+            <template v-if="!isAuthenticated">
+              <RouterLink :to="{ name: 'LoginPage' }" class="footer__link">
+                {{ $t('Sign in') }}
+              </RouterLink>
+
+              <RouterLink
+                v-if="settingsStore.isRegistrationEnabled"
+                :to="{ name: 'RegisterPage' }"
+                class="footer__link"
+              >
+                {{ $t('Create account') }}
+              </RouterLink>
+            </template>
+
+            <template v-else>
+              <RouterLink
+                :to="{ name: 'account-balance' }"
+                class="footer__link"
+              >
+                {{ $t('Top up') }}
+              </RouterLink>
+
+              <RouterLink :to="{ name: 'CartPage' }" class="footer__link">
+                {{ $t('Cart') }}
+              </RouterLink>
+
+              <RouterLink
+                :to="{ name: 'account-payment-history' }"
+                class="footer__link"
+              >
+                {{ $t('Payment history') }}
+              </RouterLink>
+            </template>
+
+            <button
+              v-if="isOfferEnabled"
+              type="button"
+              class="footer__link"
+              @click="openSellSkins"
             >
-              <img :src="social.img" />
-            </a>
+              {{ $t('Sell your skins') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="footer__column">
+          <div class="footer__title">
+            {{ $t('Support') }}
+          </div>
+
+          <div class="footer__links">
+            <RouterLink :to="{ name: 'FAQ' }" class="footer__link">
+              {{ $t('Help centre') }}
+            </RouterLink>
+
+            <template v-for="page in sortedStaticPages" :key="page.id">
+              <button
+                v-if="isCookiePage(page)"
+                type="button"
+                class="footer__link"
+                @click="openCookieSettings"
+              >
+                {{ page.title }}
+              </button>
+
+              <RouterLink
+                v-else
+                :to="getStaticPagePath(page)"
+                class="footer__link"
+              >
+                {{ page.title }}
+              </RouterLink>
+            </template>
+
+            <RouterLink :to="{ name: 'ContactPage' }" class="footer__link">
+              {{ $t('Contact us') }}
+            </RouterLink>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="footerImages.length" class="footer__payments">
+        <div class="footer__payments-label">
+          {{ $t('Payment methods') }}
+        </div>
+
+        <div class="footer__payment-list">
+          <div
+            v-for="method in footerImages"
+            :key="method.id"
+            class="footer__payment"
+          >
+            <img :src="method.url" alt="" />
           </div>
         </div>
       </div>
@@ -110,23 +182,30 @@
         <div v-if="formattedCopyright" class="footer__copy">
           {{ formattedCopyright }}
         </div>
-        <div
-          v-if="formattedRequisites"
-          class="footer__requisites"
-          v-html="formattedRequisites"
-          data-da-id="footer-requisites"
-          data-da=".footer__info,991.98"
-        />
-        <div v-if="footerImages.length" class="footer__methods">
-          <div
-            v-for="method in footerImages"
-            :key="method.id"
-            class="footer__method _ibg-contain"
+
+        <div v-if="socialLinks.length" class="footer__socials">
+          <a
+            v-for="social in socialLinks"
+            :key="social.id"
+            :href="social.link"
+            class="footer__social"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            <img :src="method.url" alt="" />
-          </div>
+            <img :src="social.img" :alt="social.title || ''" />
+          </a>
         </div>
+
+        <a v-if="supportEmail" :href="supportEmailHref" class="footer__email">
+          {{ supportEmail }}
+        </a>
       </div>
+
+      <div
+        v-if="formattedRequisites"
+        class="footer__requisites"
+        v-html="formattedRequisites"
+      />
     </div>
   </footer>
 
@@ -141,14 +220,11 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
-import { EmailIcon } from '@/components/icons'
-import SvgIcon from '@/components/icons/SvgIcon.vue'
 import SellSkinsModal from '@/components/modals/sellSkins/SellSkinModal/SellSkinsModal.vue'
 
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import { useStaticStore } from '@/stores/static'
-import { initDynamicAdapt } from '@/utils/dynamic_adapt.js'
 
 const SHOW_SELL_SKIN_MODAL = false
 
@@ -157,11 +233,23 @@ const emit = defineEmits(['open-cookie-settings'])
 const route = useRoute()
 const router = useRouter()
 
-const staticStore = useStaticStore()
-const settingsStore = useSettingsStore()
 const authStore = useAuthStore()
+const settingsStore = useSettingsStore()
+const staticStore = useStaticStore()
 
 const isSellSkinsOpen = ref(false)
+
+const isAuthenticated = computed(() => {
+  return authStore.isAuthenticated
+})
+
+const isHomePage = computed(() => {
+  return route.name === 'HomePage'
+})
+
+const isOfferEnabled = computed(() => {
+  return settingsStore.isOfferEnabled
+})
 
 const pages = computed(() => {
   return staticStore.pages || []
@@ -171,20 +259,8 @@ const socialLinks = computed(() => {
   return staticStore.socialLinks || []
 })
 
-const isAuthenticated = computed(() => {
-  return authStore.isAuthenticated
-})
-
-const isOfferEnabled = computed(() => {
-  return settingsStore.isOfferEnabled
-})
-
-const isSellSkinActive = computed(() => {
-  if (SHOW_SELL_SKIN_MODAL) {
-    return isSellSkinsOpen.value
-  }
-
-  return route.name === 'SellSkisnPage'
+const footerImages = computed(() => {
+  return settingsStore.settings?.footer_images || []
 })
 
 const supportEmail = computed(() => {
@@ -193,10 +269,6 @@ const supportEmail = computed(() => {
 
 const supportEmailHref = computed(() => {
   return supportEmail.value ? `mailto:${supportEmail.value}` : '#'
-})
-
-const footerImages = computed(() => {
-  return settingsStore.settings?.footer_images || []
 })
 
 const formattedRequisites = computed(() => {
@@ -208,7 +280,9 @@ const formattedRequisites = computed(() => {
 const formattedCopyright = computed(() => {
   const copyright = settingsStore.settings?.copyright
 
-  if (!copyright) return ''
+  if (!copyright) {
+    return ''
+  }
 
   const year = new Date().getFullYear()
 
@@ -220,6 +294,36 @@ const formattedCopyright = computed(() => {
 
   return `© ${year} ${text}`
 })
+
+const goToHomeSection = async sectionId => {
+  const hash = `#${sectionId}`
+
+  if (route.name === 'HomePage') {
+    const element = document.getElementById(sectionId)
+
+    if (element) {
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+
+      if (route.hash !== hash) {
+        window.history.replaceState(
+          null,
+          '',
+          `${route.path}${route.query ? '' : ''}${hash}`,
+        )
+      }
+    }
+
+    return
+  }
+
+  await router.push({
+    name: 'HomePage',
+    hash,
+  })
+}
 
 const openSellSkins = () => {
   if (!isAuthenticated.value) {
@@ -242,12 +346,6 @@ const openSellSkins = () => {
     name: 'SellSkisnPage',
   })
 }
-
-/*
- * ==============================
- * STATIC PAGES
- * ==============================
- */
 
 const pageSlug = page => {
   if (page?.slug) {
@@ -281,33 +379,16 @@ const getStaticPagePath = page => {
   return slug ? `/${slug}` : '/'
 }
 
-const isStaticPageActive = page => {
-  const currentSlug = route.params.slug
-
-  return typeof currentSlug === 'string' && currentSlug === pageSlug(page)
-}
-
-/*
- * Check if this static page is the Cookie Notice.
- */
 const isCookiePage = page => {
   return page?.is_cookie === 1 || pageSlug(page) === 'cookie-notice'
 }
 
-/*
- * Instead of routing to Cookie Notice,
- * ask the parent/global layout to open
- * Cookie settings modal.
- */
 const openCookieSettings = () => {
   emit('open-cookie-settings')
 }
 
-/*
- * Privacy -> Cookie -> Terms
- */
 const sortedStaticPages = computed(() => {
-  const order = ['privacy-policy', 'cookie-notice', 'terms-and-conditions']
+  const order = ['terms-and-conditions', 'privacy-policy', 'cookie-notice']
 
   return [...pages.value]
     .map(page => ({
@@ -320,229 +401,344 @@ const sortedStaticPages = computed(() => {
     })
 })
 
-/*
- * ==============================
- * INIT
- * ==============================
- */
-
 onMounted(async () => {
   await Promise.all([
     !pages.value.length ? staticStore.fetchPages() : Promise.resolve(),
 
     !settingsStore.settings ? settingsStore.fetchSettings() : Promise.resolve(),
 
-    typeof staticStore.fetchSocialLinks === 'function' &&
-    !socialLinks.value.length
+    !socialLinks.value.length &&
+    typeof staticStore.fetchSocialLinks === 'function'
       ? staticStore.fetchSocialLinks()
       : Promise.resolve(),
   ])
 
   await nextTick()
-
-  initDynamicAdapt('max')
 })
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .footer {
-  @include adaptiveValue('padding-top', 30, 25);
-  @include adaptiveValue('padding-bottom', 20, 25);
   position: relative;
-  background-color: var(--bg-primary-color);
-  &__inner {
-  }
 
-  &__top {
+  @include adaptiveValue('padding-top', 65, 40);
+  @include adaptiveValue('padding-bottom', 30, 25);
+
+  background-color: var(--feta);
+
+  &__main {
     display: grid;
-    column-gap: 20px;
-    row-gap: 18px;
-    grid-template-columns: 1fr 1fr auto 1fr 1fr;
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 18);
-    }
-    @media (max-width: 1099.98px) {
-      grid-template-columns: 1fr 1fr 1fr 1fr;
-    }
-    @media (max-width: $md2) {
-      grid-template-columns: 1fr 1fr;
-    }
-    @media (max-width: $md4) {
-      grid-column: 1 / -1;
-      width: 100%;
-    }
+    grid-template-columns:
+      minmax(240px, 1.25fr)
+      repeat(3, minmax(130px, 0.7fr));
+
+    @include adaptiveValue('column-gap', 80, 30);
+    @include adaptiveValue('row-gap', 40, 30);
   }
 
-  &__links {
-    @media (min-width: $md2) {
-      &:nth-child(1) {
-        grid-column: 1;
-      }
-
-      &:nth-child(2) {
-        grid-column: 2;
-      }
-    }
-    @media (max-width: $md2) {
-      &:nth-child(1) {
-        order: 3;
-      }
-
-      &:nth-child(2) {
-        order: 4;
-      }
-    }
-  }
-
-  &__link {
-    background-color: transparent;
-    color: var(--secondary-color);
-    display: block;
-    width: fit-content;
-    @include adaptiveValue('padding-top', 10, 9);
-    @include adaptiveValue('padding-bottom', 10, 9);
-    transition: color 0.3s ease 0s;
-    &.router-link-active {
-      color: var(--primary-color);
-      pointer-events: none;
-    }
-    @media (any-hover: hover) {
-      &:hover {
-        color: var(--primary-color);
-      }
-    }
-    &_button {
-    }
-  }
-
-  &__info {
-    @media (min-width: $md2) {
-      grid-column: 3;
-      justify-self: center;
-    }
-    @media (max-width: $md2) {
-      order: 1;
-    }
-    @media (max-width: $md4) {
-      grid-column: 1 / -1;
-      width: 100%;
-      justify-self: stretch;
-    }
+  &__brand {
+    max-width: 310px;
   }
 
   &__logo {
     display: block;
-    min-width: 218px;
-    height: 60px;
-    width: fit-content;
-    @media (max-width: $md2) {
-      &:not(:last-child) {
-        margin-bottom: 18px;
-      }
-    }
-  }
 
-  &__about {
-    grid-column: 5;
-    justify-self: end;
-    @media (max-width: 1099.98px) {
-      grid-column: 4;
-    }
-    @media (max-width: $md2) {
-      grid-column: 2;
-      order: 1;
-    }
-    @media (max-width: $md4) {
-      grid-column: 1 / -1;
+    width: 145px;
+    height: 32px;
+
+    margin-bottom: 20px;
+
+    img {
+      display: block;
+
       width: 100%;
-      justify-self: stretch;
-      order: 2;
+      height: 100%;
+
+      object-fit: contain;
+      object-position: left center;
     }
   }
 
-  &__email {
-    display: flex;
-    @include adaptiveValue('gap', 20, 10);
+  &__description {
+    margin: 0;
+
+    font-size: 14px;
+    line-height: 165%;
+
+    color: var(--soya-bean);
+  }
+
+  &__title {
+    margin-bottom: 12px;
+
+    font-size: 14px;
+    line-height: 130%;
     font-weight: 700;
-    transition: all 0.3s ease 0s;
-    color: var(--primary-color);
+
+    color: var(--cod-gray);
+  }
+
+  &__links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    gap: 3px;
+  }
+
+  &__link {
+    display: block;
+
+    width: fit-content;
+
+    padding: 6px 0;
+
+    border: 0;
+
+    background: transparent;
+
+    font: inherit;
+    font-size: 14px;
+    line-height: 140%;
+
+    text-align: left;
+
+    color: var(--soya-bean);
+
+    cursor: pointer;
+
+    transition: color 0.2s ease;
+
     @media (any-hover: hover) {
       &:hover {
-        color: var(--hint-primary-color);
+        color: var(--copper);
       }
     }
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 18);
-    }
-    &-icon {
-      min-width: 30px;
-      height: 24px;
+
+    &.router-link-active {
+      color: var(--cod-gray);
     }
   }
 
-  &__socials {
+  &__payments {
     display: flex;
-    @include adaptiveValue('gap', 20, 10);
-    &-link {
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 25px;
+
+    @include adaptiveValue('margin-top', 50, 35);
+    @include adaptiveValue('padding-top', 24, 20);
+
+    border-top: 1px solid var(--cod-gray-07);
+  }
+
+  &__payments-label {
+    flex: 0 0 auto;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    color: var(--soya-bean);
+  }
+
+  &__payment-list {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+
+    gap: 8px;
+  }
+
+  &__payment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 52px;
+    height: 34px;
+
+    padding: 5px 8px;
+
+    border: 1px solid var(--cod-gray-07);
+    border-radius: 8px;
+
+    background-color: rgba(255, 255, 255, 0.4);
+
+    img {
       display: block;
-      width: fit-content;
-      @include adaptiveValue('min-width', 30, 40);
-      @include adaptiveValue('height', 30, 40);
-      transform: scale(1);
-      transition: transform 0.3s ease 0s;
-      @media (any-hover: hover) {
-        &:hover {
-          transform: scale(1.3);
-        }
-      }
+
+      max-width: 46px;
+      max-height: 22px;
+
+      object-fit: contain;
     }
   }
 
   &__bottom {
     display: grid;
-    align-items: end;
-    column-gap: 20px;
-    row-gap: 18px;
     grid-template-columns: 1fr auto 1fr;
-    @media (max-width: $md2) {
-      grid-template-columns: 1fr 1fr;
-    }
-    @media (max-width: $md5) {
-      grid-template-columns: repeat(1, 1fr);
-    }
+    align-items: center;
+
+    gap: 25px;
+
+    @include adaptiveValue('margin-top', 22, 18);
   }
 
   &__copy {
-    color: var(--third-color);
+    font-size: 12px;
+    line-height: 150%;
+
+    color: var(--soya-bean);
+  }
+
+  &__socials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 10px;
+  }
+
+  &__social {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 34px;
+    height: 34px;
+
+    border: 1px solid var(--cod-gray-07);
+    border-radius: 50%;
+
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease;
+
+    img {
+      width: 17px;
+      height: 17px;
+
+      object-fit: contain;
+    }
+
+    @media (any-hover: hover) {
+      &:hover {
+        transform: translateY(-2px);
+
+        border-color: var(--copper);
+      }
+    }
+  }
+
+  &__email {
+    justify-self: end;
+
+    font-size: 12px;
+
+    color: var(--soya-bean);
+
+    transition: color 0.2s ease;
+
+    @media (any-hover: hover) {
+      &:hover {
+        color: var(--copper);
+      }
+    }
   }
 
   &__requisites {
-    line-height: 170%;
-    @media (min-width: $md2) {
-      text-align: center;
-      max-width: 566px;
+    max-width: 850px;
+
+    margin: 20px auto 0;
+
+    font-size: 11px;
+    line-height: 160%;
+
+    text-align: center;
+
+    color: var(--makara);
+  }
+}
+
+@media (max-width: $md2) {
+  .footer {
+    &__main {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    &__brand {
+      grid-column: 1 / -1;
+
+      max-width: 400px;
     }
   }
+}
 
-  &__methods {
-    justify-content: flex-end;
+@media (max-width: $md3) {
+  .footer {
+    &__main {
+      grid-template-columns: repeat(2, 1fr);
+    }
 
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    @media (max-width: $md5) {
-      justify-content: center;
+    &__brand {
+      grid-column: 1 / -1;
+    }
+
+    &__payments {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    &__payment-list {
+      justify-content: flex-start;
+    }
+
+    &__bottom {
+      grid-template-columns: 1fr auto;
+    }
+
+    &__socials {
+      justify-content: flex-end;
+    }
+
+    &__email {
+      grid-column: 1 / -1;
+
+      justify-self: start;
     }
   }
+}
 
-  &__method {
-    width: fit-content;
-    min-width: 50px;
-    height: 37px;
+@media (max-width: $md5) {
+  .footer {
+    &__main {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    &__brand {
+      grid-column: 1 / -1;
+    }
+
+    &__bottom {
+      display: flex;
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    &__socials {
+      justify-content: flex-start;
+    }
+
+    &__email {
+      justify-self: auto;
+    }
   }
 }
 </style>

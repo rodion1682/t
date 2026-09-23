@@ -1,86 +1,137 @@
 <template>
-  <header class="header" :class="{ scrolled: isScrolled }">
+  <header ref="headerRef" class="header" :class="{ scrolled: isScrolled }">
     <div class="header__inner">
-      <RouterLink :to="{ name: 'HomePage' }" class="header__logo _ibg-contain">
-        <img class="header__logo-image_desk" src="@/assets/img/logo-full.svg" />
-        <img class="header__logo-image_mob" src="@/assets/img/logo-small.svg" />
+      <RouterLink
+        :to="{ name: 'HomePage' }"
+        class="header__logo _ibg-contain"
+        @click="closeMobileMenu"
+      >
+        <img
+          class="header__logo-image_desk"
+          src="@/assets/img/logo-full.svg"
+          alt="OchraSkins"
+        />
+
+        <img
+          class="header__logo-image_mob"
+          src="@/assets/img/logo-small.svg"
+          alt="OchraSkins"
+        />
       </RouterLink>
 
-      <div :class="{ open: isMobileMenuVisible }" class="header__nav nav">
-        <RouterLink
-          :to="marketRoute"
-          class="nav__link"
-          @click="closeMobileMenu"
-        >
-          {{ $t('Market') }}
-        </RouterLink>
-        <RouterLink
-          :to="marketRoute"
-          class="nav__link"
-          @click="closeMobileMenu"
-        >
-          {{ $t('Buy skins') }}
-        </RouterLink>
-        <button
-          v-if="isOfferEnabled && isAuthenticated"
-          type="button"
-          class="nav__link"
-          :class="{ active: isSellSkinActive }"
-          @click="openSellSkinsFromNav"
-        >
-          {{ $t('Sell skins') }}
-        </button>
-        <button type="button" class="nav__link">
-          {{ $t('Categories') }}
-        </button>
-        <button type="button" class="nav__link">
-          {{ $t('Drops') }}
-        </button>
-        <button type="button" class="nav__link">
-          {{ $t('How it works') }}
-        </button>
+      <div class="header__nav nav" :class="{ open: isMobileMenuVisible }">
+        <template v-if="isHomePage">
+          <RouterLink
+            :to="marketRoute"
+            class="nav__link"
+            @click="closeMobileMenu"
+          >
+            {{ $t('Market') }}
+          </RouterLink>
+
+          <button
+            type="button"
+            class="nav__link"
+            :class="{ active: activeSection === 'categories' }"
+            @click="goToHomeSection('categories')"
+          >
+            {{ $t('Categories') }}
+          </button>
+
+          <button
+            type="button"
+            class="nav__link"
+            :class="{ active: activeSection === 'weekly-drops' }"
+            @click="goToHomeSection('weekly-drops')"
+          >
+            {{ $t('Drops') }}
+          </button>
+
+          <button
+            type="button"
+            class="nav__link"
+            :class="{ active: activeSection === 'how-it-works' }"
+            @click="goToHomeSection('how-it-works')"
+          >
+            {{ $t('How it works') }}
+          </button>
+        </template>
+
+        <template v-else>
+          <RouterLink
+            :to="marketRoute"
+            class="nav__link"
+            @click="closeMobileMenu"
+          >
+            {{ $t('Buy skins') }}
+          </RouterLink>
+
+          <button
+            v-if="isOfferEnabled && isAuthenticated"
+            type="button"
+            class="nav__link"
+            :class="{ active: isSellSkinActive }"
+            @click="openSellSkinsFromNav"
+          >
+            {{ $t('Sell skins') }}
+          </button>
+        </template>
       </div>
+
       <div class="header__auth">
         <LanguageSwitcher
           data-da-id="header-language"
           data-da=".header__nav,619.98,first"
           class="header__language"
         />
+
         <CurrencyDropdown
           data-da-id="header-currency"
           data-da=".header__nav,619.98,first"
           class="header__currency"
         />
+
         <template v-if="isAuthenticated">
           <RouterLink
             data-da=".header__nav,519.98,first"
             :to="{ name: 'account-balance' }"
             class="header__balance balance"
+            @click="closeMobileMenu"
           >
             <PriceFormatter
               class="balance__balance"
               :price="userBalance"
               skipConversion
             />
+
             <div class="balance__plus">
               <SvgIcon :icon="PlusIcon" class="balance__plus-icon" />
             </div>
           </RouterLink>
+
           <RouterLink
             :to="{ name: 'account-profile' }"
             class="header__link link"
+            @click="closeMobileMenu"
           >
             {{ $t('Profile') }}
           </RouterLink>
-          <!--  @click="openCartModal" -->
-          <RouterLink :to="{ name: 'CartPage' }" class="header__link link">
+
+          <RouterLink
+            :to="{ name: 'CartPage' }"
+            class="header__link link"
+            @click="closeMobileMenu"
+          >
             <div>{{ $t('Cart') }}</div>
+
             <div>·</div>
+
             <span class="link__count">
               {{ cartCount }}
             </span>
           </RouterLink>
         </template>
+
         <template v-else>
           <BaseButton
             variant="transparent"
@@ -98,13 +149,16 @@
           </BaseButton>
         </template>
       </div>
-      <div
+
+      <button
+        type="button"
         class="header__icon-menu icon-menu"
         :class="{ open: isMobileMenuVisible }"
+        :aria-label="$t('Menu')"
         @click="toggleMobileMenu"
       >
         <span></span>
-      </div>
+      </button>
     </div>
   </header>
 
@@ -113,60 +167,79 @@
     v-model="isSellSkinsOpen"
     @close="isSellSkinsOpen = false"
   />
-
-  <!--   v-if="isCartOpen"
-    v-model:show="isCartOpen" -->
-  <!--<CartPageModal
-    v-if="false"
-    v-model="isCartOpen"
-    @close="isCartOpen = false"
-  />-->
 </template>
 
 <script setup>
+import { storeToRefs } from 'pinia'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
 import PriceFormatter from '@/components/PriceFormatter.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import CurrencyDropdown from '@/components/header/CurrencyDropdown.vue'
+import LanguageSwitcher from '@/components/header/LanguageSwitcher.vue'
 import { PlusIcon } from '@/components/icons'
 import SvgIcon from '@/components/icons/SvgIcon.vue'
+import SellSkinsModal from '@/components/modals/sellSkins/SellSkinModal/SellSkinsModal.vue'
+
 import { useGame } from '@/composables/useGame'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 import { destroyDynamicAdapt, initDynamicAdapt } from '@/utils/dynamic_adapt.js'
-import { storeToRefs } from 'pinia'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import SellSkinsModal from '../modals/sellSkins/SellSkinModal/SellSkinsModal.vue'
-import LanguageSwitcher from './LanguageSwitcher.vue'
+
 defineOptions({
   name: 'AppHeader',
 })
 
 const SHOW_SELL_SKIN_MODAL = false
 
+const HOME_SECTIONS = ['categories', 'weekly-drops', 'how-it-works']
+
+const SECTION_GAP = 16
+
 const route = useRoute()
 const router = useRouter()
 
 const authStore = useAuthStore()
 const userStore = useUserStore()
-const cartstore = useCartStore()
+const cartStore = useCartStore()
 const settingsStore = useSettingsStore()
 
 const { userBalance } = storeToRefs(userStore)
 
-const { selectedGame, marketRoute, setGame, syncGame } = useGame()
+const { marketRoute, syncGame } = useGame()
+
+const headerRef = ref(null)
 
 const isMobileMenuVisible = ref(false)
-const isSignInOpen = ref(false)
 const isScrolled = ref(false)
 const isSellSkinsOpen = ref(false)
 const isCartOpen = ref(false)
 
-const isOfferEnabled = computed(() => settingsStore.isOfferEnabled)
-const cartCount = computed(() => cartstore.cartItemsCount)
-const isAuthenticated = computed(() => authStore.isAuthenticated)
+const activeSection = ref(null)
+
+let scrollFrame = null
+let sectionScrollFrame = null
+let sectionScrollTimeout = null
+
+const isHomePage = computed(() => {
+  return route.name === 'HomePage'
+})
+
+const isOfferEnabled = computed(() => {
+  return settingsStore.isOfferEnabled
+})
+
+const isAuthenticated = computed(() => {
+  return authStore.isAuthenticated
+})
+
+const cartCount = computed(() => {
+  return cartStore.cartItemsCount
+})
+
 const isSellSkinActive = computed(() => {
   if (SHOW_SELL_SKIN_MODAL) {
     return isSellSkinsOpen.value
@@ -175,13 +248,12 @@ const isSellSkinActive = computed(() => {
   return route.name === 'SellSkisnPage'
 })
 
-//const openCartModal = () => {
-//  closeMobileMenu()
-//  isCartOpen.value = true
-//}
-
 const closeMobileMenu = () => {
   isMobileMenuVisible.value = false
+}
+
+const toggleMobileMenu = () => {
+  isMobileMenuVisible.value = !isMobileMenuVisible.value
 }
 
 const goToLogin = () => {
@@ -206,21 +278,322 @@ const goToRegister = () => {
   })
 }
 
-const toggleMobileMenu = () => {
-  isMobileMenuVisible.value = !isMobileMenuVisible.value
+const getCurrentHeaderBottom = () => {
+  if (!headerRef.value) {
+    return 0
+  }
+
+  const rect = headerRef.value.getBoundingClientRect()
+
+  return Math.max(0, rect.bottom)
+}
+
+const getSectionDocumentTop = element => {
+  return element.getBoundingClientRect().top + window.scrollY
+}
+
+const getSectionTargetTop = element => {
+  const sectionTop = getSectionDocumentTop(element)
+
+  const headerBottom = getCurrentHeaderBottom()
+
+  return Math.max(0, sectionTop - headerBottom - SECTION_GAP)
+}
+
+const stopSectionScrollTracking = () => {
+  if (sectionScrollFrame) {
+    cancelAnimationFrame(sectionScrollFrame)
+    sectionScrollFrame = null
+  }
+
+  if (sectionScrollTimeout) {
+    clearTimeout(sectionScrollTimeout)
+    sectionScrollTimeout = null
+  }
+}
+
+const correctSectionPosition = element => {
+  if (!element) {
+    return
+  }
+
+  const headerBottom = getCurrentHeaderBottom()
+
+  const rect = element.getBoundingClientRect()
+
+  const expectedTop = headerBottom + SECTION_GAP
+
+  const difference = rect.top - expectedTop
+
+  if (Math.abs(difference) <= 1) {
+    return
+  }
+
+  window.scrollBy({
+    top: difference,
+    left: 0,
+    behavior: 'auto',
+  })
+}
+
+const trackSectionWhileScrolling = element => {
+  stopSectionScrollTracking()
+
+  let lastScrollY = window.scrollY
+  let stableFrames = 0
+
+  const track = () => {
+    if (!element) {
+      stopSectionScrollTracking()
+      return
+    }
+
+    /*
+     * Measure the header on EVERY animation frame.
+     *
+     * This means if the header changes:
+     * - top
+     * - height
+     * - padding
+     * - border
+     * - responsive size
+     * - .scrolled state
+     *
+     * we always use its actual rendered position.
+     */
+    const headerBottom = getCurrentHeaderBottom()
+
+    const sectionRect = element.getBoundingClientRect()
+
+    const desiredSectionTop = headerBottom + SECTION_GAP
+
+    const difference = sectionRect.top - desiredSectionTop
+
+    const currentScrollY = window.scrollY
+
+    const scrollDifference = Math.abs(currentScrollY - lastScrollY)
+
+    /*
+     * Browser smooth scroll is still moving.
+     */
+    if (scrollDifference > 0.5) {
+      stableFrames = 0
+    } else {
+      stableFrames += 1
+    }
+
+    lastScrollY = currentScrollY
+
+    /*
+     * Once native smooth scrolling has settled,
+     * correct using the header's CURRENT dimensions.
+     *
+     * At this point .scrolled and responsive CSS
+     * have already changed the actual header.
+     */
+    if (stableFrames >= 3) {
+      if (Math.abs(difference) > 1) {
+        window.scrollBy({
+          top: difference,
+          left: 0,
+          behavior: 'auto',
+        })
+      }
+
+      stopSectionScrollTracking()
+
+      updateActiveSection()
+
+      return
+    }
+
+    sectionScrollFrame = requestAnimationFrame(track)
+  }
+
+  sectionScrollFrame = requestAnimationFrame(track)
+
+  /*
+   * Safety fallback in case the browser keeps reporting
+   * tiny scroll changes for a long time.
+   */
+  sectionScrollTimeout = setTimeout(() => {
+    correctSectionPosition(element)
+    stopSectionScrollTracking()
+    updateActiveSection()
+  }, 1500)
+}
+
+const scrollToSection = async sectionId => {
+  await nextTick()
+
+  const element = document.getElementById(sectionId)
+
+  if (!element) {
+    return
+  }
+
+  stopSectionScrollTracking()
+
+  /*
+   * Initial destination uses whatever header dimensions
+   * exist at the exact moment the click happens.
+   */
+  const targetTop = getSectionTargetTop(element)
+
+  window.scrollTo({
+    top: targetTop,
+    behavior: 'smooth',
+  })
+
+  /*
+   * While that scroll happens, .scrolled may change
+   * the header dimensions. We therefore keep measuring
+   * the REAL header and correct after scrolling settles.
+   */
+  trackSectionWhileScrolling(element)
+}
+
+const waitForSection = async (sectionId, attempts = 30) => {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await nextTick()
+
+    const element = document.getElementById(sectionId)
+
+    if (element) {
+      return element
+    }
+
+    await new Promise(resolve => {
+      requestAnimationFrame(resolve)
+    })
+  }
+
+  return null
+}
+
+const goToHomeSection = async sectionId => {
+  closeMobileMenu()
+
+  activeSection.value = sectionId
+
+  if (!isHomePage.value) {
+    await router.push({
+      name: 'HomePage',
+      hash: `#${sectionId}`,
+    })
+
+    const element = await waitForSection(sectionId)
+
+    if (!element) {
+      return
+    }
+
+    await scrollToSection(sectionId)
+
+    return
+  }
+
+  if (route.hash !== `#${sectionId}`) {
+    window.history.replaceState(
+      null,
+      '',
+      `${route.path}${route.hash ? '' : ''}#${sectionId}`,
+    )
+  }
+
+  await scrollToSection(sectionId)
+}
+
+const updateActiveSection = () => {
+  if (!isHomePage.value) {
+    activeSection.value = null
+    return
+  }
+
+  /*
+   * This is ALWAYS the actual header bottom right now.
+   *
+   * Example:
+   *
+   * top page:
+   * header top = 16
+   * height = 63
+   * bottom = 79
+   *
+   * while transition is running:
+   * bottom could be 74, 68, 59...
+   *
+   * scrolled:
+   * top = 0
+   * height = 50
+   * bottom = 50
+   *
+   * Nothing is hardcoded here.
+   */
+  const activationLine = getCurrentHeaderBottom() + SECTION_GAP
+
+  let currentSection = null
+
+  for (const sectionId of HOME_SECTIONS) {
+    const element = document.getElementById(sectionId)
+
+    if (!element) {
+      continue
+    }
+
+    const rect = element.getBoundingClientRect()
+
+    if (rect.top <= activationLine && rect.bottom > activationLine) {
+      currentSection = sectionId
+      break
+    }
+  }
+
+  activeSection.value = currentSection
+}
+
+const handleScroll = () => {
+  /*
+   * Only this controls the header visual state.
+   *
+   * We do NOT manually guess what its height will be.
+   * CSS changes the header, then measurements read
+   * the resulting rendered dimensions.
+   */
+  isScrolled.value = window.scrollY > 0
+
+  if (scrollFrame) {
+    cancelAnimationFrame(scrollFrame)
+  }
+
+  scrollFrame = requestAnimationFrame(() => {
+    updateActiveSection()
+
+    scrollFrame = null
+  })
+}
+
+const handleResize = () => {
+  if (scrollFrame) {
+    cancelAnimationFrame(scrollFrame)
+  }
+
+  scrollFrame = requestAnimationFrame(() => {
+    /*
+     * Responsive SCSS may have changed the header.
+     * getBoundingClientRect() now gives us the new
+     * actual dimensions automatically.
+     */
+    updateActiveSection()
+
+    scrollFrame = null
+  })
 }
 
 const openSellSkinsFromNav = () => {
   closeMobileMenu()
 
-  if (!authStore.isAuthenticated) {
-    router.push({
-      name: 'LoginPage',
-      query: {
-        redirect: route.fullPath,
-      },
-    })
-
+  if (!isAuthenticated.value) {
     return
   }
 
@@ -232,9 +605,6 @@ const openSellSkinsFromNav = () => {
   router.push({
     name: 'SellSkisnPage',
   })
-}
-const handleScroll = () => {
-  isScrolled.value = (window.scrollY || window.pageYOffset) >= 1
 }
 
 const lockBodyScroll = () => {
@@ -251,6 +621,7 @@ const lockBodyScroll = () => {
 
 const unlockBodyScroll = () => {
   document.body.classList.remove('scroll-locked')
+
   document.documentElement.style.removeProperty('--scrollbar-compensation')
 }
 
@@ -259,13 +630,19 @@ watch(
   category => {
     syncGame(category)
   },
-  { immediate: true },
+  {
+    immediate: true,
+  },
 )
 
 watch(
   () => route.fullPath,
-  () => {
+  async () => {
     closeMobileMenu()
+
+    await nextTick()
+
+    updateActiveSection()
   },
 )
 
@@ -282,6 +659,7 @@ watch(
 
 const refreshDynamicAdapt = async () => {
   await nextTick()
+
   initDynamicAdapt('max')
 }
 
@@ -296,19 +674,42 @@ watch(isAuthenticated, async value => {
 onMounted(async () => {
   await refreshDynamicAdapt()
 
-  isSignInOpen.value = false
-
   handleScroll()
 
   window.addEventListener('scroll', handleScroll, {
     passive: true,
   })
+
+  window.addEventListener('resize', handleResize, {
+    passive: true,
+  })
+
+  if (isHomePage.value && route.hash) {
+    const sectionId = route.hash.replace('#', '')
+
+    if (HOME_SECTIONS.includes(sectionId)) {
+      const element = await waitForSection(sectionId)
+
+      if (element) {
+        await scrollToSection(sectionId)
+      }
+    }
+  }
 })
 
 onBeforeUnmount(() => {
   destroyDynamicAdapt()
   unlockBodyScroll()
+
+  stopSectionScrollTracking()
+
+  if (scrollFrame) {
+    cancelAnimationFrame(scrollFrame)
+  }
+
   window.removeEventListener('scroll', handleScroll)
+
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -355,7 +756,7 @@ onBeforeUnmount(() => {
     gap: 10px;
     width: 100%;
     transition: min-height 0.3s ease 0s;
-    @include adaptiveValue('padding-top', 8, 5);
+    @include adaptiveValue('padding-top', 10, 5);
     @include adaptiveValue('padding-bottom', 8, 5);
     @include adaptiveValue('min-height', 63, 50, 1296, 992, 1);
     @include adaptiveValue('padding-left', 24, 10);
@@ -603,6 +1004,7 @@ onBeforeUnmount(() => {
     height: 30px;
     cursor: pointer;
     z-index: 12;
+    background-color: transparent;
 
     span,
     &::before,

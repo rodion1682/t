@@ -104,7 +104,7 @@ const goToCategory = category => {
 </script>
 
 <template>
-  <section class="category">
+  <section id="categories" class="category home-anchor">
     <div class="category__inner _cnt">
       <div class="category__head">
         <div class="category__label">

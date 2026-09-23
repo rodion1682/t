@@ -3,7 +3,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 </script>
 
 <template>
-  <section class="listing">
+  <section id="how-it-works" class="listing">
     <div class="listing__inner _cnt">
       <div class="listing__bg _ibg">
         <img src="@/assets/img/listing-bg.jpg" />

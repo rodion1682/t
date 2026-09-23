@@ -150,7 +150,7 @@ const inspectItem = async () => {
 </script>
 
 <template>
-  <section v-if="item" class="drop">
+  <section v-if="item" id="weekly-drops" class="drop home-anchor">
     <div class="drop__inner _cnt">
       <div class="drop__card">
         <div class="drop__visual">
@@ -452,7 +452,6 @@ const inspectItem = async () => {
 
 @media (max-width: $md5) {
   .drop {
-
     &__bottom {
       align-items: stretch;
       flex-direction: column;
