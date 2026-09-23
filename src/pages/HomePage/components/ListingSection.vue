@@ -33,7 +33,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 
 .listing {
   &__inner {
-    @include adaptiveValue('border-radius', 25, 20);
+    @include adaptiveValue('border-radius', 38, 20);
     position: relative;
     overflow: hidden;
   }

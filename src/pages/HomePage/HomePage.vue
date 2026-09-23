@@ -2,9 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import axios from '@/plugins/axios'
 
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import CategorySection from '@/pages/HomePage/components/CategorySection.vue'
 import HeroSection from '@/pages/HomePage/components/HeroSection.vue'
 import ApartSection from './components/ApartSection.vue'
@@ -46,10 +46,14 @@ const MARKET_CATEGORIES = [
 const HERO_TYPES = ['gloves', 'pistol', 'rifle']
 
 const loading = ref(true)
+
 const filterData = ref(null)
 const totalItems = ref(null)
 const categoryData = ref({})
 const heroItems = ref([])
+
+const dropItem = ref(null)
+const dropLoaded = ref(false)
 
 const categories = computed(() => {
   return MARKET_CATEGORIES.map((category, index) => ({
@@ -70,14 +74,20 @@ const homeDataReady = computed(() => {
   const hasTotalItems = totalItems.value !== null
 
   const hasCategories = MARKET_CATEGORIES.every(category => {
-    return categoryData.value[category.key]
+    return Boolean(categoryData.value[category.key])
   })
 
   const hasHeroItems = HERO_TYPES.every(type => {
     return heroItems.value.some(item => item.heroType === type)
   })
 
-  return hasFilterData && hasTotalItems && hasCategories && hasHeroItems
+  return (
+    hasFilterData &&
+    hasTotalItems &&
+    hasCategories &&
+    hasHeroItems &&
+    dropLoaded.value
+  )
 })
 
 const fetchFilterData = async () => {
@@ -182,11 +192,39 @@ const fetchTotalItems = async () => {
   }
 }
 
+const fetchDropItem = async () => {
+  try {
+    const { data } = await axios.get('/items/daily', {
+      params: {
+        category: CATEGORY,
+      },
+    })
+
+    if (data?.status !== 'OK') {
+      dropItem.value = null
+      return
+    }
+
+    dropItem.value = data.payload || null
+  } catch (error) {
+    console.error('Failed to fetch drop of the week:', error)
+
+    dropItem.value = null
+  } finally {
+    dropLoaded.value = true
+  }
+}
+
 const loadHome = async () => {
   loading.value = true
 
   try {
-    await Promise.all([fetchFilterData(), fetchTotalItems(), fetchCategories()])
+    await Promise.all([
+      fetchFilterData(),
+      fetchTotalItems(),
+      fetchCategories(),
+      fetchDropItem(),
+    ])
   } catch (error) {
     console.error('Failed to load home page:', error)
   } finally {
@@ -214,13 +252,15 @@ onMounted(loadHome)
         :categories="categories"
         :category-count="categoryCount"
       />
+
+      <ListingSection />
+
+      <DropSection v-if="dropItem" :item="dropItem" />
+
+      <ApartSection />
+
+      <StartSection />
     </template>
-
-    <ListingSection />
-    <DropSection />
-
-    <ApartSection />
-    <StartSection />
   </div>
 </template>
 
@@ -234,6 +274,8 @@ onMounted(loadHome)
     display: flex;
     align-items: center;
     justify-content: center;
+
+    width: 100%;
     min-height: 500px;
   }
 }
