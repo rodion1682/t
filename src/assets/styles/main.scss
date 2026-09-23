@@ -1,0 +1,103 @@
+@use '_reset.scss';
+@use '_mixins.scss' as *;
+@use '_fonts.scss';
+@use '_colors.scss';
+@use '_media.scss';
+@use '_toasts.scss';
+@use '_variables.scss';
+@use 'components/_classes.scss';
+
+body {
+  font-family: var(--font-ibm-plex);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 27.2px;
+  overflow-x: hidden !important;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--white-janna);
+  color: var(--soya-bean);
+}
+:root {
+  --vueuse-safe-area-top: 0px !important;
+  --vueuse-safe-area-right: 0px !important;
+  --vueuse-safe-area-bottom: 0px !important;
+  --vueuse-safe-area-left: 0px !important;
+}
+
+#app {
+  overflow-x: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.fade-enter-to,
+.fade-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+body.scroll-locked {
+  overflow: hidden;
+  padding-right: var(--scrollbar-compensation);
+}
+
+body.scroll-locked .header {
+  padding-right: var(--scrollbar-compensation);
+}
+
+html {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hint-primary-color) var(--bg-primary-color);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hint-primary-color) var(--bg-primary-color);
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--hint-primary-color);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hint-primary-color);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--hint-primary-color);
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

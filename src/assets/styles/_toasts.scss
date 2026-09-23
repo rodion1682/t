@@ -1,0 +1,57 @@
+@use "_mixins.scss" as *;
+
+.Toastify__toast-container {
+	padding: 8px;
+}
+
+.Toastify__toast {
+	background-color: var(--bg-primary-color);
+	border-radius: var(--border-radius-primary);
+	border-color: var(--secondary-color);
+	border-style: solid;
+	border-width: 1px;
+	font-family: var(--font-family-inter);
+	color: var(--primary-color);
+}
+
+.Toastify__close-button {
+	svg {
+		transition: fill 0.3s ease 0s;
+		fill: var(--primary-color);
+	}
+	@media (any-hover: hover) {
+		&:hover {
+			svg {
+				fill: var(--primary-color);
+			}
+		}
+	}
+}
+
+.Toastify__progress-bar {
+	background: var(--primary-color);
+}
+
+.Toastify__progress-bar--success {
+	background: var(--success-color);
+}
+
+.Toastify__progress-bar--error {
+	background-color: var(--error-color);
+}
+
+.Toastify__toast--success {
+	background-color: var(--bg-primary-color);
+	color: var(--success-color);
+}
+
+.Toastify__toast--error {
+	background-color: var(--bg-primary-color);
+	color: var(--error-color);
+}
+
+.Toastify__toast-icon {
+	svg {
+		fill: var(--primary-color);
+	}
+}

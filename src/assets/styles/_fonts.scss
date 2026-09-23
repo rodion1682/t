@@ -1,0 +1,132 @@
+@use '_mixins.scss' as *;
+
+:root {
+  --font-ibm-plex:
+    'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --font-space-grotesk:
+    'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --font-inter:
+    'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@mixin font-h4 {
+  font-size: 16px;
+}
+
+@mixin font-h3 {
+  @include adaptiveValue('font-size', 24, 22);
+}
+
+@mixin font-h2 {
+  @include adaptiveValue('font-size', 50, 24);
+}
+
+@mixin font-h1 {
+  @include adaptiveValue('font-size', 90, 35);
+}
+
+._h1,
+._h2,
+._h3,
+._h4 {
+  font-weight: 900;
+  line-height: 120%;
+  font-family: var(--font-montserrat);
+  text-transform: uppercase;
+  color: var(--primary-color);
+  span {
+    color: var(--hint-primary-color);
+  }
+}
+
+._h1 {
+  @include font-h1;
+}
+
+._h2 {
+  @include font-h2;
+}
+
+._h3 {
+  @include font-h3;
+}
+
+._h4 {
+  @include font-h4;
+}
+
+@mixin ibm-17-400 {
+  font-family: var(--font-ibm-plex);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 27.2px;
+}
+
+@mixin ibm-14-700 {
+  font-family: var(--font-ibm-plex);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 21.7px;
+}
+
+@mixin ibm-13-700 {
+  font-family: var(--font-ibm-plex);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20.1px;
+}
+
+// space grotesk
+
+@mixin sg-14-700 {
+  font-family: var(--font-space-grotesk);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 16.8px;
+}
+
+._text-gradient {
+  background: linear-gradient(180deg, #a855f7 -100%, #131320 100%);
+
+  background-clip: text;
+  -webkit-background-clip: text;
+
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+._link {
+  background-color: transparent;
+  display: block;
+  width: fit-content;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 150%;
+  transition: all 0.3s ease 0s;
+  border-bottom: 1px solid transparent;
+  font-family: var(--font-inter);
+  color: var(--link-color);
+  @media (any-hover: hover) {
+    &:hover {
+      border-color: inherit;
+    }
+  }
+}
+
+._text-error,
+._text-success {
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 150%;
+  font-family: var(--font-inter);
+}
+
+._text-error {
+  color: var(--error-color);
+}
+
+._text-success {
+  color: var(--success-color);
+}

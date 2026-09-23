@@ -1,0 +1,28 @@
+@use "_mixins.scss" as *;
+
+:root {
+	$minWidth: 320;
+
+	--border-radius-primary: 24px;
+
+	// animation scales
+	--downscale: 0.96;
+	--upscale: 1.04;
+
+	--blur-amount: 20px;
+
+	// z - indexes
+	--base-z-index: 1;
+	--secondary-z-index: 2;
+	--third-z-index: 3;
+	--fourth-z-index: 4;
+
+	--modal-z-index: 15;
+	--modal-overlay-z-index: 16;
+	--modal-inner-z-index: 17;
+
+	--menu-z-index: 10;
+	--header-overlay-z-index: 11;
+	--header-z-index: 12;
+	--header-min-height: clamp(3.125rem, 2.5rem + 1vw, 5.625rem);
+}
