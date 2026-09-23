@@ -8,6 +8,7 @@ import axios from '@/plugins/axios'
 import CategorySection from '@/pages/HomePage/components/CategorySection.vue'
 import HeroSection from '@/pages/HomePage/components/HeroSection.vue'
 import DropSection from './components/DropSection.vue'
+import HowSection from './components/HowSection.vue'
 import ListingSection from './components/ListingSection.vue'
 import MarketSection from './components/MarketSection.vue'
 import StartSection from './components/StartSection.vue'
@@ -55,6 +56,9 @@ const heroItems = ref([])
 const dropItem = ref(null)
 const dropLoaded = ref(false)
 
+const marketItems = ref([])
+const marketLoaded = ref(false)
+
 const categories = computed(() => {
   return MARKET_CATEGORIES.map((category, index) => ({
     ...category,
@@ -70,7 +74,6 @@ const categoryCount = computed(() => {
 
 const homeDataReady = computed(() => {
   const hasFilterData = Boolean(filterData.value)
-
   const hasTotalItems = totalItems.value !== null
 
   const hasCategories = MARKET_CATEGORIES.every(category => {
@@ -86,7 +89,8 @@ const homeDataReady = computed(() => {
     hasTotalItems &&
     hasCategories &&
     hasHeroItems &&
-    dropLoaded.value
+    dropLoaded.value &&
+    marketLoaded.value
   )
 })
 
@@ -215,6 +219,34 @@ const fetchDropItem = async () => {
   }
 }
 
+const fetchMarketItems = async () => {
+  try {
+    const { data } = await axios.get('/items/list', {
+      params: {
+        category: CATEGORY,
+        random: 1,
+        page: 1,
+        limit: 10,
+      },
+    })
+
+    if (data?.status !== 'OK') {
+      marketItems.value = []
+      return
+    }
+
+    marketItems.value = Array.isArray(data.payload)
+      ? data.payload.slice(0, 10)
+      : []
+  } catch (error) {
+    console.error('Failed to fetch market items:', error)
+
+    marketItems.value = []
+  } finally {
+    marketLoaded.value = true
+  }
+}
+
 const loadHome = async () => {
   loading.value = true
 
@@ -224,6 +256,7 @@ const loadHome = async () => {
       fetchTotalItems(),
       fetchCategories(),
       fetchDropItem(),
+      fetchMarketItems(),
     ])
   } catch (error) {
     console.error('Failed to load home page:', error)
@@ -257,8 +290,9 @@ onMounted(loadHome)
 
       <DropSection v-if="dropItem" :item="dropItem" />
 
-      <MarketSection />
+      <MarketSection :items="marketItems" />
 
+      <HowSection />
       <StartSection />
     </template>
   </div>

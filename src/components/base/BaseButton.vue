@@ -128,6 +128,7 @@ const buttonClasses = computed(() => [
     padding: 8.8px 15px;
     background-color: transparent;
     border: 1px solid var(--cod-gray-16);
+    text-shadow: 1px 1px 1px var(--cod-gray-16);
     color: var(--cod-gray);
     @media (any-hover: hover) {
       &:hover {
