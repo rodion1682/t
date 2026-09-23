@@ -62,7 +62,6 @@ const openCookieSettings = async () => {
   flex-direction: column;
   position: relative;
 
-  @include header-indent;
   &::before {
     content: '';
     position: absolute;
@@ -84,6 +83,7 @@ const openCookieSettings = async () => {
   }
 
   &__main {
+    @include header-indent;
     flex: 1 1 100%;
     display: flex;
     flex-direction: column;

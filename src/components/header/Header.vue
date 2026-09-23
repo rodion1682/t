@@ -355,9 +355,9 @@ onBeforeUnmount(() => {
     gap: 10px;
     width: 100%;
     transition: min-height 0.3s ease 0s;
-    @include adaptiveValue('padding-top', 10, 5);
-    @include adaptiveValue('padding-bottom', 10, 5);
-    @include adaptiveValue('min-height', 63, 50);
+    @include adaptiveValue('padding-top', 8, 5);
+    @include adaptiveValue('padding-bottom', 8, 5);
+    @include adaptiveValue('min-height', 63, 50, 1296, 992, 1);
     @include adaptiveValue('padding-left', 24, 10);
     @include adaptiveValue('padding-right', 24, 10);
   }

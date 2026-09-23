@@ -24,24 +24,22 @@
 }
 
 @mixin font-h1 {
-  @include adaptiveValue('font-size', 90, 35);
+  @include adaptiveValue('font-size', 72, 35);
+  @include adaptiveValue('line-height', 75, 38);
 }
 
 ._h1,
 ._h2,
 ._h3,
 ._h4 {
-  font-weight: 900;
-  line-height: 120%;
-  font-family: var(--font-montserrat);
-  text-transform: uppercase;
-  color: var(--primary-color);
-  span {
-    color: var(--hint-primary-color);
-  }
+  font-weight: 700;
+  font-family: var(--font-space-grotesk);
+  color: var(--cod-gray);
 }
 
 ._h1 {
+  letter-spacing: -1.08px;
+  color: var(--cod-gray);
   @include font-h1;
 }
 
@@ -78,7 +76,23 @@
   line-height: 20.1px;
 }
 
+@mixin ibm-12-700 {
+  font-family: var(--font-ibm-plex);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18.6px;
+  color: var(--hemlock);
+  text-transform: uppercase;
+}
+
 // space grotesk
+
+@mixin sg-20-700 {
+  font-family: var(--font-space-grotesk);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 31px;
+}
 
 @mixin sg-14-700 {
   font-family: var(--font-space-grotesk);

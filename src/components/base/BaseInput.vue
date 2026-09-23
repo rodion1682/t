@@ -198,23 +198,24 @@ onMounted(() => {
 
 .base-input {
   position: relative;
-  border: 1px solid var(--border-primary-color);
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   transition: all 0.3s ease;
   overflow: hidden;
-  background-color: var(--bg-secondary-color);
+  background-color: var(--merino);
   @include adaptiveValue('min-height', 50, 40);
-  @include adaptiveValue('border-radius', 20, 10);
+  @include adaptiveValue('border-radius', 28, 20);
+  box-shadow: inset 0 0 0 2px #dcd3c4;
   &.is-focused {
-    border-color: var(--hint-primary-color);
+    box-shadow: inset 0 0 0 2px var(--copper);
     .base-input__placeholder {
       opacity: 0 !important;
       color: var(--hint-primary-color);
     }
   }
   &.has-error {
-    border-color: var(--error-color);
+    border-color: var(--hairy-heath);
     .base-input__placeholder {
       opacity: 0 !important;
     }
@@ -249,18 +250,17 @@ onMounted(() => {
     }
   }
   &__label {
-    font-size: 16px;
-    line-height: 120%;
+    font-size: 14px;
+    line-height: 21.7px;
+    color: var(--soya-bean);
+    font-family: var(--font-ibm-plex);
     font-weight: 400;
     transition: color 0.3s ease 0s;
-    color: var(--secondary-color);
-    font-family: var(--font-inter);
-    text-shadow: 1px 1px 1px var(--bg-primary-color);
     &:not(:last-child) {
-      margin-bottom: 5px;
+      margin-bottom: 8.7px;
     }
     &.error {
-      color: var(--error-color);
+      color: var(--hairy-heath);
     }
   }
   &__control[type='number'] {
@@ -299,11 +299,10 @@ onMounted(() => {
     width: 100%;
     height: 100%;
     font-weight: 400;
-    font-size: 16px;
     overflow: hidden;
-    font-family: var(--font-inter);
-    color: var(--primary-color);
-    //padding-top: 13px;
+    font-size: 15px;
+    color: var(--cod-gray);
+    font-family: var(--font-ibm-plex);
     @include adaptiveValue('padding-left', 18, 15);
     @include adaptiveValue('padding-right', 18, 15);
 
@@ -344,8 +343,8 @@ onMounted(() => {
     font-weight: 400;
     font-size: 16px;
     overflow: hidden;
-    font-family: var(--font-inter);
-    color: var(--secondary-color);
+    font-family: var(--font-ibm-plex);
+    color: var(--zorba);
     max-width: calc(100% - 45px);
     &.has-prefix {
       @include adaptiveValue('left', 18, 15);
