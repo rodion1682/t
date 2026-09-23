@@ -103,6 +103,13 @@
   letter-spacing: 0.96px;
 }
 
+@mixin ibm-12-400 {
+  font-family: var(--font-ibm-plex);
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 18.6px;
+}
+
 // space grotesk
 
 @mixin sg-42-700 {
@@ -166,6 +173,14 @@
   font-weight: 700;
   font-size: 17px;
   line-height: 21.3px;
+}
+
+@mixin sg-15-400 {
+  font-family: var(--font-space-grotesk);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--sprout);
 }
 
 @mixin sg-14-700 {

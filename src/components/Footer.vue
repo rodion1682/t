@@ -1,10 +1,35 @@
 <template>
   <footer class="footer">
     <div class="footer__inner _cnt">
-      <div class="footer__top">
-        <div class="footer__links">
+      <div class="footer__info">
+        <RouterLink
+          :to="{ name: 'HomePage' }"
+          class="footer__logo _ibg-contain"
+        >
+          <img src="@/assets/img/logo-full.svg" />
+        </RouterLink>
+        <div
+          v-if="formattedRequisites"
+          class="footer__requisites"
+          v-html="formattedRequisites"
+        />
+      </div>
+      <div class="footer__links">
+        <div class="footer__label">{{ $t('Market') }}</div>
+        <template v-if="true">
           <RouterLink :to="{ name: 'ProductListPage' }" class="footer__link">
-            {{ $t('Market') }}
+            {{ $t('All items') }}
+          </RouterLink>
+          <button type="button" class="footer__link">
+            {{ $t('Categories') }}
+          </button>
+          <button type="button" class="footer__link">
+            {{ $t('Weekly drops') }}
+          </button>
+        </template>
+        <template v-else>
+          <RouterLink :to="{ name: 'ProductListPage' }" class="footer__link">
+            {{ $t('Buy skins') }}
           </RouterLink>
           <button
             v-if="isOfferEnabled && false"
@@ -15,21 +40,31 @@
           >
             {{ $t('Sell Skins') }}
           </button>
+        </template>
 
-          <RouterLink :to="{ name: 'FAQ' }" class="footer__link">
-            {{ $t('FAQ') }}
-          </RouterLink>
-          <RouterLink :to="{ name: 'ContactPage' }" class="footer__link">
-            {{ $t('Contact us') }}
-          </RouterLink>
-          <RouterLink
-            v-if="false"
-            :to="{ name: 'HomePage' }"
-            class="footer__link"
-          >
-            {{ $t('Home') }}
-          </RouterLink>
-        </div>
+        <RouterLink v-if="false" :to="{ name: 'FAQ' }" class="footer__link">
+          {{ $t('FAQ') }}
+        </RouterLink>
+        <RouterLink
+          v-if="false"
+          :to="{ name: 'ContactPage' }"
+          class="footer__link"
+        >
+          {{ $t('Contact us') }}
+        </RouterLink>
+        <RouterLink
+          v-if="false"
+          :to="{ name: 'HomePage' }"
+          class="footer__link"
+        >
+          {{ $t('Home') }}
+        </RouterLink>
+      </div>
+      <div class="footer__links">
+        <div class="footer__label">{{ $t('Account') }}</div>
+        <template></template>
+      </div>
+      <div class="footer__top">
         <div v-if="sortedStaticPages.length" class="footer__links">
           <template v-for="page in sortedStaticPages" :key="page.id">
             <button
@@ -50,14 +85,7 @@
             </RouterLink>
           </template>
         </div>
-        <div class="footer__info">
-          <RouterLink
-            :to="{ name: 'HomePage' }"
-            class="footer__logo _ibg-contain"
-          >
-            <img src="@/assets/img/logo-full.svg" />
-          </RouterLink>
-        </div>
+
         <div class="footer__about">
           <a :href="supportEmailHref" class="footer__email">
             <SvgIcon :icon="EmailIcon" class="footer__email-icon" />
@@ -192,12 +220,6 @@ const formattedCopyright = computed(() => {
 
   return `© ${year} ${text}`
 })
-
-/*
- * ==============================
- * SELL SKINS
- * ==============================
- */
 
 const openSellSkins = () => {
   if (!isAuthenticated.value) {
