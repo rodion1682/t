@@ -1,7 +1,8 @@
 import axios from '@/plugins/axios'
 import { useCurrencyStore } from '@/stores/currency'
-import { debounce } from 'lodash'
+
 import { computed, reactive, ref, watch } from 'vue'
+
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -16,18 +17,18 @@ export const ALLOWED_GAMES = [PRODUCT_GAMES.CS2]
 
 export const SORT_OPTIONS = [
   {
-    value: 'desc',
-    label: 'From high to low ',
+    value: 'asc',
+    label: 'Lowest first',
   },
   {
-    value: 'asc',
-    label: 'From low to high',
+    value: 'desc',
+    label: 'Highest first',
   },
 ]
 
 export const DEFAULT_FILTERS = {
   search: '',
-  sort: 'desc',
+  sort: 'asc',
 
   priceRange: {
     min: null,
@@ -35,7 +36,7 @@ export const DEFAULT_FILTERS = {
   },
 
   page: 1,
-  perPage: 25,
+  perPage: 15,
 
   type: [],
   quality: [],
@@ -48,7 +49,14 @@ export const DEFAULT_FILTERS = {
 }
 
 const toArray = value => {
-  return value ? String(value).split(',').filter(Boolean) : []
+  if (!value) {
+    return []
+  }
+
+  return String(value)
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
 }
 
 const normalizeGame = value => {
@@ -57,10 +65,56 @@ const normalizeGame = value => {
     .toLowerCase()
 }
 
+const normalizePage = value => {
+  const page = Number(value)
+
+  if (!Number.isFinite(page) || page < 1) {
+    return 1
+  }
+
+  return Math.floor(page)
+}
+
+const normalizePerPage = value => {
+  const perPage = Number(value)
+
+  if (!Number.isFinite(perPage) || perPage < 1) {
+    return DEFAULT_FILTERS.perPage
+  }
+
+  return Math.floor(perPage)
+}
+
+const normalizePrice = value => {
+  if (value == null || value === '') {
+    return null
+  }
+
+  const price = Number(value)
+
+  if (!Number.isFinite(price) || price < 0) {
+    return null
+  }
+
+  return price
+}
+
+const normalizeSort = value => {
+  const sort = String(value || '')
+    .trim()
+    .toLowerCase()
+
+  return SORT_OPTIONS.some(option => option.value === sort)
+    ? sort
+    : DEFAULT_FILTERS.sort
+}
+
 export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
   const { t } = useI18n()
+
   const route = useRoute()
   const router = useRouter()
+
   const currencyStore = useCurrencyStore()
 
   const allowedGames = computed(() => {
@@ -110,7 +164,7 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
       return game
     }
 
-    return allowedGames.value[0]
+    return allowedGames.value[0] || PRODUCT_GAMES.CS2
   }
 
   const currentCategory = ref(
@@ -132,9 +186,13 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
   })
 
   const products = ref([])
+
   const loading = ref(false)
+
   const subcategoriesLoading = ref(false)
+
   const error = ref(null)
+
   const ready = ref(false)
 
   const availableFilters = reactive({
@@ -150,8 +208,8 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
     total: 0,
     currentPage: 1,
     lastPage: 1,
-    from: 1,
-    to: DEFAULT_FILTERS.perPage,
+    from: 0,
+    to: 0,
   })
 
   const currencyCode = computed(() => {
@@ -179,24 +237,18 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
       ...DEFAULT_FILTERS,
 
       priceRange: {
-        min:
-          q.price_from != null && q.price_from !== ''
-            ? Number(q.price_from)
-            : null,
+        min: normalizePrice(q.price_from),
 
-        max:
-          q.price_till != null && q.price_till !== ''
-            ? Number(q.price_till)
-            : null,
+        max: normalizePrice(q.price_till),
       },
 
-      search: q.search ? String(q.search) : '',
+      search: q.search ? String(q.search).trim() : '',
 
-      sort: q.sort ? String(q.sort) : DEFAULT_FILTERS.sort,
+      sort: normalizeSort(q.sort),
 
-      page: q.page ? Number(q.page) : 1,
+      page: normalizePage(q.page),
 
-      perPage: q.per_page ? Number(q.per_page) : DEFAULT_FILTERS.perPage,
+      perPage: normalizePerPage(q.per_page),
 
       type: toArray(q.type),
 
@@ -219,10 +271,15 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
 
   const resetAvailableFilters = () => {
     availableFilters.types = []
+
     availableFilters.qualities = []
+
     availableFilters.heroes = []
+
     availableFilters.exterior_names = []
+
     availableFilters.classes = []
+
     availableFilters.subcategories = []
   }
 
@@ -290,6 +347,33 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
     })
   }
 
+  const mapFilterOptions = values => {
+    if (!Array.isArray(values)) {
+      return []
+    }
+
+    return values
+      .filter(value => value != null && value !== '')
+      .map(value => {
+        if (typeof value === 'object') {
+          const optionValue = value.value ?? value.name ?? value.label
+
+          return {
+            ...value,
+
+            label: value.label ?? value.name ?? optionValue,
+
+            value: optionValue,
+          }
+        }
+
+        return {
+          label: value,
+          value,
+        }
+      })
+  }
+
   const fetchFilterData = async () => {
     try {
       const { data } = await axios.get('/items/filter-data', {
@@ -300,37 +384,21 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
 
       if (data?.status !== 'OK') {
         resetAvailableFilters()
+
         return
       }
 
-      availableFilters.types = (data.payload?.types || []).map(value => ({
-        label: value,
-        value,
-      }))
+      const payload = data.payload || {}
 
-      availableFilters.qualities = (data.payload?.qualities || []).map(
-        value => ({
-          label: value,
-          value,
-        }),
-      )
+      availableFilters.types = mapFilterOptions(payload.types)
 
-      availableFilters.heroes = (data.payload?.heroes || []).map(value => ({
-        label: value,
-        value,
-      }))
+      availableFilters.qualities = mapFilterOptions(payload.qualities)
 
-      availableFilters.exterior_names = (
-        data.payload?.exterior_names || []
-      ).map(value => ({
-        label: value,
-        value,
-      }))
+      availableFilters.heroes = mapFilterOptions(payload.heroes)
 
-      availableFilters.classes = (data.payload?.classes || []).map(value => ({
-        label: value,
-        value,
-      }))
+      availableFilters.exterior_names = mapFilterOptions(payload.exterior_names)
+
+      availableFilters.classes = mapFilterOptions(payload.classes)
     } catch (e) {
       console.error('fetchFilterData error:', e)
 
@@ -360,6 +428,7 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
   }
 
   let currentRequestId = 0
+
   let abortController = null
 
   const fetchProductsImmediate = async () => {
@@ -379,9 +448,13 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
     try {
       const params = {
         page: filters.page,
+
         limit: filters.perPage,
+
         sort: filters.sort,
+
         category: currentCategory.value,
+
         currency: currencyCode.value,
       }
 
@@ -427,7 +500,9 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
 
       const { data } = await axios.get('/items/list', {
         params,
+
         timeout: 15000,
+
         signal: abortController.signal,
       })
 
@@ -436,32 +511,38 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
       }
 
       if (data?.status === 'OK') {
-        products.value = data.payload || []
+        products.value = Array.isArray(data.payload) ? data.payload : []
 
         const total = Number(data?.meta?.total ?? 0)
-        const pages = Number(data?.meta?.pages ?? 1)
 
-        pagination.total = total
-        pagination.lastPage = pages
-        pagination.currentPage = Number(filters.page || 1)
+        const pages = Math.max(1, Number(data?.meta?.pages ?? 1))
 
-        pagination.from = total
+        pagination.total = Number.isFinite(total) ? total : 0
+
+        pagination.lastPage = Number.isFinite(pages) ? pages : 1
+
+        pagination.currentPage = normalizePage(filters.page)
+
+        pagination.from = pagination.total
           ? (pagination.currentPage - 1) * filters.perPage + 1
           : 0
 
         pagination.to = Math.min(
           pagination.currentPage * filters.perPage,
-          total,
-        )
-      } else {
-        products.value = []
 
-        pagination.total = 0
-        pagination.currentPage = 1
-        pagination.lastPage = 1
-        pagination.from = 0
-        pagination.to = 0
+          pagination.total,
+        )
+
+        return
       }
+
+      products.value = []
+
+      pagination.total = 0
+      pagination.currentPage = 1
+      pagination.lastPage = 1
+      pagination.from = 0
+      pagination.to = 0
     } catch (err) {
       const canceled =
         err?.name === 'AbortError' ||
@@ -487,16 +568,41 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
       }
 
       products.value = []
+
+      pagination.total = 0
+      pagination.currentPage = 1
+      pagination.lastPage = 1
+      pagination.from = 0
+      pagination.to = 0
     } finally {
       if (requestId === currentRequestId) {
         loading.value = false
+
         abortController = null
+
         ready.value = true
       }
     }
   }
 
-  const fetchProducts = debounce(fetchProductsImmediate, DEBOUNCE_DELAY)
+  /*
+   * Kept for components that may want
+   * a debounced product refresh directly.
+   *
+   * ProductListPage normally changes
+   * filters -> URL -> route watcher ->
+   * fetchProductsImmediate().
+   */
+  let fetchProductsTimer = null
+
+  const fetchProducts = () => {
+    window.clearTimeout(fetchProductsTimer)
+
+    fetchProductsTimer = window.setTimeout(
+      fetchProductsImmediate,
+      DEBOUNCE_DELAY,
+    )
+  }
 
   const syncFromRouteAndFetch = async () => {
     const oldCategory = currentCategory.value
@@ -549,7 +655,7 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
     }
 
     loading.value = true
-    ready.value = true
+
     products.value = []
 
     currentCategory.value = normalizedCategory
@@ -577,11 +683,35 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
   }
 
   const updateFilters = async newFilters => {
-    if (!Object.prototype.hasOwnProperty.call(newFilters, 'page')) {
-      filters.page = 1
+    const nextFilters = {
+      ...newFilters,
     }
 
-    Object.assign(filters, newFilters)
+    if (!Object.prototype.hasOwnProperty.call(nextFilters, 'page')) {
+      nextFilters.page = 1
+    }
+
+    if (Object.prototype.hasOwnProperty.call(nextFilters, 'page')) {
+      nextFilters.page = normalizePage(nextFilters.page)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(nextFilters, 'sort')) {
+      nextFilters.sort = normalizeSort(nextFilters.sort)
+    }
+
+    if (Object.prototype.hasOwnProperty.call(nextFilters, 'search')) {
+      nextFilters.search = String(nextFilters.search || '').trim()
+    }
+
+    if (nextFilters.priceRange) {
+      nextFilters.priceRange = {
+        min: normalizePrice(nextFilters.priceRange.min),
+
+        max: normalizePrice(nextFilters.priceRange.max),
+      }
+    }
+
+    Object.assign(filters, nextFilters)
 
     const forcedSpecialOffer = getForcedSpecialOffer()
 
@@ -615,9 +745,11 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
 
   watch(
     () => route.fullPath,
+
     async () => {
       await syncFromRouteAndFetch()
     },
+
     {
       immediate: true,
     },
@@ -625,12 +757,27 @@ export function useProductList(initialCategory = PRODUCT_GAMES.CS2) {
 
   watch(
     () => currencyStore.currentCurrencyCode,
-    async () => {
+
+    async (newCurrency, oldCurrency) => {
+      if (!oldCurrency || newCurrency === oldCurrency) {
+        return
+      }
+
       filters.priceRange.min = null
+
       filters.priceRange.max = null
+
       filters.page = 1
 
       await updateURLQuery()
+
+      /*
+       * If URL did not change because
+       * there were no price params/page
+       * to remove, the route watcher
+       * will not fire. Refresh directly.
+       */
+      await fetchProductsImmediate()
     },
   )
 

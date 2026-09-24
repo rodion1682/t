@@ -1,271 +1,222 @@
 <template>
   <aside class="aside">
-    <div class="aside__title _h4">
-      <span>{{ $t('Filters') }}</span>
-    </div>
-    <div class="aside__control">
-      <BaseInput
-        v-model="searchValue"
-        class="aside__search"
-        :placeholder="$t('Search ...')"
-        autocomplete="off"
+    <div class="aside__head">
+      <div class="aside__title">
+        {{ $t('Filter') }}
+      </div>
+
+      <button
+        type="button"
+        class="aside__close"
+        aria-label="Close filters"
+        @click="emit('close')"
       >
-        <template #suffix>
-          <SvgIcon class="aside__search-icon" :icon="SearchIcon" />
-        </template>
-      </BaseInput>
+        ×
+      </button>
     </div>
-    <div class="aside__control">
-      <BaseDdropdown
-        class="aside__dropdown"
-        :label="sortDropdownLabel"
-        absolute
-      >
-        <BaseCheckbox
-          v-for="option in sortOptions"
-          :key="option.value"
-          class="aside__checkbox"
-          :model-value="safeFilters.sort === option.value"
-          @update:model-value="selectSort(option.value)"
-        >
-          {{ option.label }}
-        </BaseCheckbox>
-      </BaseDdropdown>
-    </div>
-    <div class="aside__control">
+
+    <!-- PRICE -->
+    <div class="aside__section">
       <div class="aside__subtitle">
         {{ $t('Price') }}
       </div>
 
-      <PriceRange
-        v-model:min="minPrice"
-        v-model:max="maxPrice"
-        class="aside__price"
-        :currency-symbol="currencyStore.currentCurrencySymbol"
-        placeholder-min="0"
-        placeholder-max="10000"
-        @change="handlePriceRangeChange"
-      />
+      <div class="aside__range">
+        <div class="aside__range-track">
+          <div class="aside__range-fill" :style="rangeFillStyle"></div>
+
+          <input
+            v-model.number="rangeMin"
+            class="aside__range-input aside__range-input_min"
+            type="range"
+            :min="PRICE_MIN"
+            :max="PRICE_MAX"
+            :step="PRICE_STEP"
+            @input="handleRangeInput"
+            @change="applyRange"
+          />
+
+          <input
+            v-model.number="rangeMax"
+            class="aside__range-input aside__range-input_max"
+            type="range"
+            :min="PRICE_MIN"
+            :max="PRICE_MAX"
+            :step="PRICE_STEP"
+            @input="handleRangeInput"
+            @change="applyRange"
+          />
+        </div>
+      </div>
+
+      <div class="aside__price-fields">
+        <label class="aside__price-field">
+          <span class="aside__price-label">
+            {{ $t('From') }}
+          </span>
+
+          <div class="aside__price-input-wrap">
+            <input
+              v-model="minPrice"
+              class="aside__price-input"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="0"
+              @input="handleMinInput"
+              @blur="applyPriceInputs"
+              @keydown.enter.prevent="applyPriceInputs"
+            />
+
+            <span class="aside__currency">
+              {{ currencySymbol }}
+            </span>
+          </div>
+        </label>
+
+        <label class="aside__price-field">
+          <span class="aside__price-label">
+            {{ $t('To') }}
+          </span>
+
+          <div class="aside__price-input-wrap">
+            <input
+              v-model="maxPrice"
+              class="aside__price-input"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              :placeholder="String(PRICE_MAX)"
+              @input="handleMaxInput"
+              @blur="applyPriceInputs"
+              @keydown.enter.prevent="applyPriceInputs"
+            />
+
+            <span class="aside__currency">
+              {{ currencySymbol }}
+            </span>
+          </div>
+        </label>
+      </div>
     </div>
-    <div class="aside__control">
+
+    <!-- EXTERIOR -->
+    <div v-if="showExteriorFilter" class="aside__section">
       <div class="aside__subtitle">
-        {{ $t('Item type') }}
+        {{ $t('Exterior') }}
       </div>
 
-      <div v-if="typeOptions.length" class="aside__box">
-        <BaseCheckbox
-          variant="radio"
-          class="aside__checkbox"
-          :model-value="
-            !safeFilters.type.length && !safeFilters.subcategories.length
-          "
-          @update:model-value="clearTypes"
+      <div class="aside__options">
+        <button
+          type="button"
+          class="aside__option"
+          :class="{
+            aside__option_active: !selectedExterior.length,
+          }"
+          @click="clearExterior"
         >
-          {{ $t('All') }}
-        </BaseCheckbox>
-        <BaseCheckbox
-          variant="radio"
-          v-for="option in typeOptions"
+          <span class="aside__check"> ✓ </span>
+
+          <span>
+            {{ $t('All') }}
+          </span>
+        </button>
+
+        <button
+          v-for="option in exteriorOptions"
           :key="option.value"
-          class="aside__checkbox"
-          :model-value="isTypeChecked(option)"
-          @update:model-value="toggleType(option)"
+          type="button"
+          class="aside__option"
+          :class="{
+            aside__option_active: selectedExterior.includes(option.value),
+          }"
+          @click="toggleExterior(option.value)"
         >
-          {{ decodeHtml(option.label) }}
-        </BaseCheckbox>
+          <span class="aside__check"> ✓ </span>
+
+          <span>
+            {{ decodeHtml(option.label) }}
+          </span>
+        </button>
       </div>
     </div>
-    <BaseDdropdown
-      v-if="typeOptions.length && false"
-      class="aside__dropdown"
-      :label="typeDropdownLabel"
-      :close-on-outside="false"
-      :close-on-escape="false"
-    >
-      <BaseCheckbox
-        class="aside__checkbox"
-        :model-value="
-          !safeFilters.type.length && !safeFilters.subcategories.length
-        "
-        @update:model-value="clearTypes"
-      >
-        {{ $t('All') }}
-      </BaseCheckbox>
 
-      <BaseCheckbox
-        v-for="option in typeOptions"
-        :key="option.value"
-        class="aside__checkbox"
-        :model-value="isTypeChecked(option)"
-        @update:model-value="toggleType(option)"
-      >
-        {{ decodeHtml(option.label) }}
-      </BaseCheckbox>
-    </BaseDdropdown>
-    <BaseDdropdown
-      v-if="showHeroesFilter"
-      class="aside__dropdown"
-      :label="heroDropdownLabel"
-      :close-on-outside="false"
-      :close-on-escape="false"
-    >
-      <BaseCheckbox
-        v-for="option in safeAvailableFilters.heroes"
-        :key="option.value"
-        class="aside__checkbox"
-        :model-value="safeFilters.hero.includes(option.value)"
-        @update:model-value="toggleMulti('hero', option.value)"
-      >
-        {{ decodeHtml(option.label) }}
-      </BaseCheckbox>
-    </BaseDdropdown>
-
-    <template v-if="showCs2ExteriorFilter">
-      <div class="aside__control">
-        <div class="aside__subtitle">
-          {{ $t('Quality:') }}
-        </div>
-        <div class="aside__box">
-          <BaseCheckbox
-            variant="radio"
-            class="aside__checkbox"
-            :model-value="!selectedCs2ExteriorValues.length"
-            @update:model-value="clearCs2Exterior"
-          >
-            {{ $t('All') }}
-          </BaseCheckbox>
-
-          <BaseCheckbox
-            variant="radio"
-            v-for="option in cs2ExteriorOptions"
-            :key="option.value"
-            class="aside__checkbox"
-            :model-value="selectedCs2ExteriorValues.includes(option.value)"
-            @update:model-value="toggleCs2Exterior(option.value)"
-          >
-            {{ decodeHtml(option.label) }}
-          </BaseCheckbox>
-        </div>
-        <BaseDdropdown
-          v-if="false"
-          class="aside__dropdown"
-          :label="exteriorDropdownLabel"
-          :close-on-outside="false"
-          :close-on-escape="false"
-        >
-          <BaseCheckbox
-            class="aside__checkbox"
-            :model-value="!selectedCs2ExteriorValues.length"
-            @update:model-value="clearCs2Exterior"
-          >
-            {{ $t('All') }}
-          </BaseCheckbox>
-
-          <BaseCheckbox
-            v-for="option in cs2ExteriorOptions"
-            :key="option.value"
-            class="aside__checkbox"
-            :model-value="selectedCs2ExteriorValues.includes(option.value)"
-            @update:model-value="toggleCs2Exterior(option.value)"
-          >
-            {{ decodeHtml(option.label) }}
-          </BaseCheckbox>
-        </BaseDdropdown>
-      </div>
-    </template>
-
-    <template v-if="showDotaQualityFilter">
+    <!-- RARITY -->
+    <div v-if="showRarityFilter" class="aside__section">
       <div class="aside__subtitle">
         {{ $t('Rarity') }}
       </div>
 
-      <BaseDdropdown
-        class="aside__dropdown"
-        :label="rarityDropdownLabel"
-        :close-on-outside="false"
-        :close-on-escape="false"
-      >
-        <BaseCheckbox
-          class="aside__checkbox"
-          :model-value="!safeFilters.quality.length"
-          @update:model-value="clearMulti('quality')"
+      <div class="aside__options">
+        <button
+          type="button"
+          class="aside__option"
+          :class="{
+            aside__option_active: !safeFilters.class.length,
+          }"
+          @click="clearRarity"
         >
-          {{ $t('All') }}
-        </BaseCheckbox>
+          <span class="aside__check"> ✓ </span>
 
-        <BaseCheckbox
-          v-for="option in safeAvailableFilters.qualities"
+          <span>
+            {{ $t('All') }}
+          </span>
+        </button>
+
+        <button
+          v-for="option in rarityOptions"
           :key="option.value"
-          class="aside__checkbox"
-          :model-value="safeFilters.quality.includes(option.value)"
-          @update:model-value="toggleMulti('quality', option.value)"
+          type="button"
+          class="aside__option"
+          :class="{
+            aside__option_active: safeFilters.class.includes(option.value),
+          }"
+          @click="toggleRarity(option.value)"
         >
-          {{ decodeHtml(option.label) }}
-        </BaseCheckbox>
-      </BaseDdropdown>
-    </template>
-    <BaseDdropdown
-      v-if="false"
-      class="aside__dropdown"
-      :label="$t('Special offers')"
-      :close-on-outside="false"
-      :close-on-escape="false"
-    >
-      <BaseCheckbox
-        v-for="option in specialOfferOptions"
-        :key="option.value"
-        class="aside__checkbox"
-        :model-value="safeFilters.special_offer === option.value"
-        @update:model-value="toggleSingle('special_offer', option.value)"
-      >
-        {{ $t(option.label) }}
-      </BaseCheckbox>
-    </BaseDdropdown>
+          <span class="aside__check"> ✓ </span>
 
-    <BaseButton
-      type="button"
-      variant="transparent-link"
-      class="aside__reset"
-      @click="handleResetFilters"
-    >
-      {{ $t('Clear filters') }}
-    </BaseButton>
+          <span>
+            {{ decodeHtml(option.label) }}
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <button type="button" class="aside__reset" @click="handleResetFilters">
+      {{ $t('Reset all filters') }}
+    </button>
   </aside>
 </template>
 
 <script setup>
 import { debounce } from 'lodash'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
 
-import BaseButton from '@/components/base/BaseButton.vue'
-import BaseCheckbox from '@/components/base/BaseCheckbox.vue'
-import BaseInput from '@/components/base/BaseInput.vue'
-import PriceRange from '@/components/base/PriceRange.vue'
-import BaseDdropdown from '@/components/dropdown/BaseDdropdown.vue'
-import { SearchIcon } from '@/components/icons'
-import SvgIcon from '@/components/icons/SvgIcon.vue'
 import { useCurrencyStore } from '@/stores/currency'
 
-const { t } = useI18n()
+const emit = defineEmits(['close'])
 
 const props = defineProps({
   filters: {
     type: Object,
     default: () => ({}),
   },
+
   availableFilters: {
     type: Object,
     default: () => ({}),
   },
+
   currentGame: {
     type: String,
     default: 'cs2',
   },
+
   updateFilters: {
     type: Function,
     required: true,
   },
+
   resetFilters: {
     type: Function,
     required: true,
@@ -274,77 +225,46 @@ const props = defineProps({
 
 const currencyStore = useCurrencyStore()
 
-const searchValue = ref('')
+const PRICE_MIN = 0
+const PRICE_MAX = 100000
+const PRICE_STEP = 1
+
 const minPrice = ref('')
 const maxPrice = ref('')
 
-const sortOptions = computed(() => [
-  {
-    value: 'desc',
-    label: t('From high to low'),
-  },
-  {
-    value: 'asc',
-    label: t('From low to high'),
-  },
-])
+const rangeMin = ref(PRICE_MIN)
+const rangeMax = ref(PRICE_MAX)
 
-const specialOfferOptions = computed(() => [
-  {
-    value: 'sale',
-    label: t('Sale'),
-  },
-  {
-    value: 'new',
-    label: t('New'),
-  },
-])
+const currencySymbol = computed(() => {
+  return currencyStore.currentCurrencySymbol || '€'
+})
 
 const safeFilters = computed(() => ({
-  search: props.filters?.search || '',
-  sort: props.filters?.sort || 'desc',
-
-  type: Array.isArray(props.filters?.type) ? props.filters.type : [],
+  priceRange: props.filters?.priceRange || {
+    min: null,
+    max: null,
+  },
 
   quality: Array.isArray(props.filters?.quality) ? props.filters.quality : [],
-
-  subcategories: Array.isArray(props.filters?.subcategories)
-    ? props.filters.subcategories
-    : [],
-
-  hero: Array.isArray(props.filters?.hero) ? props.filters.hero : [],
 
   exterior_name: Array.isArray(props.filters?.exterior_name)
     ? props.filters.exterior_name
     : [],
 
-  special_offer: props.filters?.special_offer || '',
-
-  priceRange: props.filters?.priceRange || {
-    min: null,
-    max: null,
-  },
+  class: Array.isArray(props.filters?.class) ? props.filters.class : [],
 }))
 
 const safeAvailableFilters = computed(() => ({
-  types: Array.isArray(props.availableFilters?.types)
-    ? props.availableFilters.types
-    : [],
-
   qualities: Array.isArray(props.availableFilters?.qualities)
     ? props.availableFilters.qualities
-    : [],
-
-  heroes: Array.isArray(props.availableFilters?.heroes)
-    ? props.availableFilters.heroes
     : [],
 
   exterior_names: Array.isArray(props.availableFilters?.exterior_names)
     ? props.availableFilters.exterior_names
     : [],
 
-  subcategories: Array.isArray(props.availableFilters?.subcategories)
-    ? props.availableFilters.subcategories
+  classes: Array.isArray(props.availableFilters?.classes)
+    ? props.availableFilters.classes
     : [],
 }))
 
@@ -358,149 +278,166 @@ const isCs2 = computed(() => {
   return normalizedCurrentGame.value === 'cs2'
 })
 
-const isDota2 = computed(() => {
-  return normalizedCurrentGame.value === 'dota2'
-})
-
-const showHeroesFilter = computed(() => {
-  return isDota2.value && safeAvailableFilters.value.heroes.length > 0
-})
-
-const cs2UsesExteriorNames = computed(() => {
+const usesExteriorNames = computed(() => {
   return safeAvailableFilters.value.exterior_names.length > 0
 })
 
-const cs2ExteriorOptions = computed(() => {
-  if (cs2UsesExteriorNames.value) {
+const exteriorOptions = computed(() => {
+  if (usesExteriorNames.value) {
     return safeAvailableFilters.value.exterior_names
   }
 
   return safeAvailableFilters.value.qualities
 })
 
-const cs2ExteriorFilterKey = computed(() => {
-  return cs2UsesExteriorNames.value ? 'exterior_name' : 'quality'
+const exteriorFilterKey = computed(() => {
+  return usesExteriorNames.value ? 'exterior_name' : 'quality'
 })
 
-const selectedCs2ExteriorValues = computed(() => {
-  return safeFilters.value[cs2ExteriorFilterKey.value] || []
+const selectedExterior = computed(() => {
+  return safeFilters.value[exteriorFilterKey.value] || []
 })
 
-const showCs2ExteriorFilter = computed(() => {
-  return isCs2.value && cs2ExteriorOptions.value.length > 0
+const showExteriorFilter = computed(() => {
+  return isCs2.value && exteriorOptions.value.length > 0
 })
 
-const showDotaQualityFilter = computed(() => {
-  return isDota2.value && safeAvailableFilters.value.qualities.length > 0
+const rarityOptions = computed(() => {
+  return safeAvailableFilters.value.classes
 })
 
-const typeOptions = computed(() => {
-  if (isCs2.value) {
-    return safeAvailableFilters.value.subcategories.map(item => ({
-      label: item.category,
-      value: item.category,
-      subcategories: item.sub_categories || [],
-      isCs2Category: true,
-    }))
-  }
-
-  return safeAvailableFilters.value.types
+const showRarityFilter = computed(() => {
+  return isCs2.value && rarityOptions.value.length > 0
 })
-
-const debouncedSearch = debounce(async value => {
-  await props.updateFilters({
-    search: value.trim(),
-    page: 1,
-  })
-}, 400)
-
-watch(searchValue, value => {
-  if (value === safeFilters.value.search) {
-    return
-  }
-
-  debouncedSearch(value)
-})
-
-watch(
-  () => safeFilters.value.search,
-  value => {
-    if (searchValue.value !== value) {
-      searchValue.value = value || ''
-    }
-  },
-  {
-    immediate: true,
-  },
-)
-
-const sortDropdownLabel = computed(() => {
-  const option = sortOptions.value.find(
-    item => item.value === safeFilters.value.sort,
-  )
-
-  return option?.label || t('Sort by price')
-})
-
-const selectSort = async value => {
-  if (safeFilters.value.sort === value) {
-    return
-  }
-
-  await props.updateFilters({
-    sort: value,
-    page: 1,
-  })
-}
 
 const decodeHtml = value => {
-  if (typeof document === 'undefined') {
-    return value || ''
+  if (!value) {
+    return ''
   }
 
   const textarea = document.createElement('textarea')
-  textarea.innerHTML = value || ''
+
+  textarea.innerHTML = String(value)
 
   return textarea.value
 }
 
-const toggleSingle = async (key, value) => {
-  const current = safeFilters.value[key]
+const sanitizeNumber = value => {
+  return String(value ?? '').replace(/[^\d]/g, '')
+}
 
+const clamp = (value, min, max) => {
+  return Math.min(Math.max(value, min), max)
+}
+
+const rangeFillStyle = computed(() => {
+  const total = PRICE_MAX - PRICE_MIN
+
+  const left = ((rangeMin.value - PRICE_MIN) / total) * 100
+
+  const right = 100 - ((rangeMax.value - PRICE_MIN) / total) * 100
+
+  return {
+    left: `${left}%`,
+    right: `${right}%`,
+  }
+})
+
+const handleRangeInput = () => {
+  if (rangeMin.value > rangeMax.value) {
+    if (document.activeElement?.classList.contains('aside__range-input_min')) {
+      rangeMin.value = rangeMax.value
+    } else {
+      rangeMax.value = rangeMin.value
+    }
+  }
+
+  minPrice.value = rangeMin.value > PRICE_MIN ? String(rangeMin.value) : ''
+
+  maxPrice.value = rangeMax.value < PRICE_MAX ? String(rangeMax.value) : ''
+}
+
+const applyRange = async () => {
   await props.updateFilters({
-    [key]: current === value ? '' : value,
+    priceRange: {
+      min: rangeMin.value > PRICE_MIN ? rangeMin.value : null,
+
+      max: rangeMax.value < PRICE_MAX ? rangeMax.value : null,
+    },
+
     page: 1,
   })
 }
 
-const toggleMulti = async (key, value) => {
-  const current = [...(safeFilters.value[key] || [])]
+const handleMinInput = event => {
+  minPrice.value = sanitizeNumber(event.target.value)
+}
+
+const handleMaxInput = event => {
+  maxPrice.value = sanitizeNumber(event.target.value)
+}
+
+const debouncedPriceUpdate = debounce(async () => {
+  let min = minPrice.value !== '' ? Number(minPrice.value) : null
+
+  let max = maxPrice.value !== '' ? Number(maxPrice.value) : null
+
+  if (min !== null) {
+    min = clamp(min, PRICE_MIN, PRICE_MAX)
+  }
+
+  if (max !== null) {
+    max = clamp(max, PRICE_MIN, PRICE_MAX)
+  }
+
+  if (min !== null && max !== null && min > max) {
+    const temp = min
+
+    min = max
+    max = temp
+  }
+
+  minPrice.value = min !== null ? String(min) : ''
+
+  maxPrice.value = max !== null ? String(max) : ''
+
+  rangeMin.value = min ?? PRICE_MIN
+
+  rangeMax.value = max ?? PRICE_MAX
+
+  await props.updateFilters({
+    priceRange: {
+      min,
+      max,
+    },
+
+    page: 1,
+  })
+}, 300)
+
+const applyPriceInputs = () => {
+  debouncedPriceUpdate()
+}
+
+const toggleExterior = async value => {
+  const current = [...selectedExterior.value]
+
   const index = current.indexOf(value)
 
-  if (index > -1) {
+  if (index >= 0) {
     current.splice(index, 1)
   } else {
     current.push(value)
   }
 
   await props.updateFilters({
-    [key]: current,
+    [exteriorFilterKey.value]: current,
+
     page: 1,
   })
 }
 
-const clearMulti = async key => {
-  await props.updateFilters({
-    [key]: [],
-    page: 1,
-  })
-}
-
-const toggleCs2Exterior = async value => {
-  await toggleMulti(cs2ExteriorFilterKey.value, value)
-}
-
-const clearCs2Exterior = async () => {
+const clearExterior = async () => {
   await props.updateFilters({
     quality: [],
     exterior_name: [],
@@ -508,109 +445,57 @@ const clearCs2Exterior = async () => {
   })
 }
 
-const isTypeChecked = option => {
-  return safeFilters.value.type.includes(option.value)
-}
+const toggleRarity = async value => {
+  const current = [...safeFilters.value.class]
 
-const toggleType = async option => {
-  await toggleMulti('type', option.value)
-}
+  const index = current.indexOf(value)
 
-const clearTypes = async () => {
+  if (index >= 0) {
+    current.splice(index, 1)
+  } else {
+    current.push(value)
+  }
+
   await props.updateFilters({
-    type: [],
-    subcategories: [],
+    class: current,
     page: 1,
   })
 }
 
-const typeDropdownLabel = computed(() => {
-  const selected = safeFilters.value.type
-
-  if (!selected.length) {
-    return t('All')
-  }
-
-  if (selected.length === 1) {
-    return decodeHtml(selected[0])
-  }
-
-  return `${selected.length} ${t('selected')}`
-})
-
-const heroDropdownLabel = computed(() => {
-  const selected = safeFilters.value.hero
-
-  if (!selected.length) {
-    return t('All')
-  }
-
-  if (selected.length === 1) {
-    const option = safeAvailableFilters.value.heroes.find(
-      item => item.value === selected[0],
-    )
-
-    return decodeHtml(option?.label || selected[0])
-  }
-
-  return `${selected.length} ${t('selected')}`
-})
-
-const exteriorDropdownLabel = computed(() => {
-  const selected = selectedCs2ExteriorValues.value
-
-  if (!selected.length) {
-    return t('All')
-  }
-
-  if (selected.length === 1) {
-    const option = cs2ExteriorOptions.value.find(
-      item => item.value === selected[0],
-    )
-
-    return decodeHtml(option?.label || selected[0])
-  }
-
-  return `${selected.length} ${t('selected')}`
-})
-
-const rarityDropdownLabel = computed(() => {
-  const selected = safeFilters.value.quality
-
-  if (!selected.length) {
-    return t('All')
-  }
-
-  if (selected.length === 1) {
-    const option = safeAvailableFilters.value.qualities.find(
-      item => item.value === selected[0],
-    )
-
-    return decodeHtml(option?.label || selected[0])
-  }
-
-  return `${selected.length} ${t('selected')}`
-})
-
-const debouncedPriceChange = debounce(async () => {
+const clearRarity = async () => {
   await props.updateFilters({
-    priceRange: {
-      min: minPrice.value !== '' ? Number(minPrice.value) : null,
-      max: maxPrice.value !== '' ? Number(maxPrice.value) : null,
-    },
+    class: [],
     page: 1,
   })
-}, 300)
+}
 
-const handlePriceRangeChange = () => {
-  debouncedPriceChange()
+const handleResetFilters = async () => {
+  debouncedPriceUpdate.cancel()
+
+  minPrice.value = ''
+  maxPrice.value = ''
+
+  rangeMin.value = PRICE_MIN
+
+  rangeMax.value = PRICE_MAX
+
+  await props.resetFilters()
 }
 
 watch(
   () => safeFilters.value.priceRange,
   value => {
-    minPrice.value = value?.min ?? ''
-    maxPrice.value = value?.max ?? ''
+    const min = value?.min != null ? Number(value.min) : null
+
+    const max = value?.max != null ? Number(value.max) : null
+
+    minPrice.value = min !== null ? String(min) : ''
+
+    maxPrice.value = max !== null ? String(max) : ''
+
+    rangeMin.value = min !== null ? clamp(min, PRICE_MIN, PRICE_MAX) : PRICE_MIN
+
+    rangeMax.value = max !== null ? clamp(max, PRICE_MIN, PRICE_MAX) : PRICE_MAX
   },
   {
     deep: true,
@@ -618,80 +503,484 @@ watch(
   },
 )
 
-const handleResetFilters = async () => {
-  debouncedSearch.cancel()
-  debouncedPriceChange.cancel()
-
-  searchValue.value = ''
-  minPrice.value = ''
-  maxPrice.value = ''
-
-  if (typeof props.resetFilters === 'function') {
-    await props.resetFilters()
-  }
-}
-
 onBeforeUnmount(() => {
-  debouncedSearch.cancel()
-  debouncedPriceChange.cancel()
+  debouncedPriceUpdate.cancel()
 })
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .aside {
-  @include adaptiveValue('padding', 30, 10);
-  @include adaptiveValue('border-radius', 20, 10);
-  background-color: var(--bg-primary-color);
-  border: 1px solid var(--border-primary-color);
+  width: 100%;
+
+  @include adaptiveValue('padding', 24, 18);
+
+  border-radius: 28px;
+
+  background: var(--double-spanish-white);
+
+  color: var(--cod-gray);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 15px;
+
+    &:not(:last-child) {
+      margin-bottom: 22px;
+    }
+  }
+
   &__title {
-    text-transform: capitalize;
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 30, 18);
+    @include ibm-12-700;
+
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+
+    color: var(--kelp);
+  }
+
+  &__close {
+    display: none;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 34px;
+    height: 34px;
+
+    padding: 0;
+
+    border: 1px solid var(--cod-gray-07);
+
+    border-radius: 50%;
+
+    background: var(--merino);
+
+    font-size: 24px;
+    line-height: 1;
+
+    color: var(--cod-gray);
+
+    cursor: pointer;
+  }
+
+  &__section {
+    padding-bottom: 22px;
+
+    border-bottom: 1px solid var(--cod-gray-07);
+
+    &:not(:first-of-type) {
+      padding-top: 20px;
     }
-  }
 
-  &__control,
-  &__search {
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 30, 18);
+    &:last-of-type {
+      margin-bottom: 18px;
     }
-  }
-
-  &__search {
-    &-icon {
-      min-width: 18px;
-      height: 18px;
-      color: var(--hint-primary-color);
-    }
-  }
-
-  &__dropdown {
-  }
-
-  &__checkbox {
-    padding: 5px 0px;
   }
 
   &__subtitle {
-    &:not(:last-child) {
-      margin-bottom: 15px;
+    margin-bottom: 16px;
+
+    @include ibm-12-700;
+
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+
+    color: var(--makara);
+  }
+
+  // =========================
+  // PRICE RANGE
+  // =========================
+
+  &__range {
+    padding: 4px 8px 0;
+
+    margin-bottom: 20px;
+  }
+
+  &__range-track {
+    position: relative;
+
+    height: 20px;
+  }
+
+  &__range-track::before {
+    content: '';
+
+    position: absolute;
+
+    top: 50%;
+    left: 0;
+    right: 0;
+
+    height: 2px;
+
+    transform: translateY(-50%);
+
+    border-radius: 999px;
+
+    background: var(--makara);
+  }
+
+  &__range-fill {
+    position: absolute;
+
+    z-index: 1;
+
+    top: 50%;
+
+    height: 2px;
+
+    transform: translateY(-50%);
+
+    border-radius: 999px;
+
+    background: var(--kelp);
+
+    pointer-events: none;
+  }
+
+  &__range-input {
+    position: absolute;
+
+    z-index: 2;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 20px;
+
+    margin: 0;
+
+    appearance: none;
+    -webkit-appearance: none;
+
+    background: transparent;
+
+    pointer-events: none;
+
+    &::-webkit-slider-runnable-track {
+      height: 2px;
+
+      background: transparent;
+    }
+
+    &::-moz-range-track {
+      height: 2px;
+
+      background: transparent;
+    }
+
+    &::-webkit-slider-thumb {
+      width: 17px;
+      height: 17px;
+
+      margin-top: -7.5px;
+
+      appearance: none;
+      -webkit-appearance: none;
+
+      border: 2px solid var(--merino);
+
+      border-radius: 50%;
+
+      background: var(--copper);
+
+      box-shadow: 0 0 0 1px var(--copper);
+
+      cursor: grab;
+
+      pointer-events: auto;
+    }
+
+    &::-moz-range-thumb {
+      width: 17px;
+      height: 17px;
+
+      border: 2px solid var(--merino);
+
+      border-radius: 50%;
+
+      background: var(--copper);
+
+      box-shadow: 0 0 0 1px var(--copper);
+
+      cursor: grab;
+
+      pointer-events: auto;
+    }
+
+    &:active {
+      &::-webkit-slider-thumb {
+        cursor: grabbing;
+      }
+
+      &::-moz-range-thumb {
+        cursor: grabbing;
+      }
     }
   }
 
-  &__price {
+  &__price-fields {
+    display: flex;
+    flex-direction: column;
+
+    gap: 8px;
   }
 
-  &__box {
-    max-height: 130px;
-    overflow-y: auto;
-    overflow-x: hidden;
+  &__price-field {
+    display: flex;
+    align-items: center;
+
+    min-height: 40px;
+
+    padding: 0 14px;
+
+    border: 1px solid var(--cod-gray-07);
+
+    border-radius: 999px;
+
+    background: var(--merino);
+
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+
+    &:focus-within {
+      border-color: var(--copper);
+
+      box-shadow: 0 0 0 2px var(--copper-10);
+    }
   }
+
+  &__price-label {
+    flex: 0 0 auto;
+
+    min-width: 42px;
+
+    @include ibm-12-400;
+
+    color: var(--zorba);
+  }
+
+  &__price-input-wrap {
+    display: flex;
+    align-items: center;
+
+    flex: 1 1 auto;
+
+    min-width: 0;
+  }
+
+  &__price-input {
+    width: 100%;
+    min-width: 0;
+
+    padding: 0;
+
+    border: 0;
+    outline: 0;
+
+    background: transparent;
+
+    @include ibm-12-400;
+
+    color: var(--cod-gray);
+
+    &::placeholder {
+      color: var(--zorba);
+    }
+  }
+
+  &__currency {
+    flex: 0 0 auto;
+
+    margin-left: 5px;
+
+    @include ibm-12-400;
+
+    color: var(--zorba);
+  }
+
+  // =========================
+  // OPTIONS
+  // =========================
+
+  &__options {
+    display: flex;
+    flex-direction: column;
+
+    gap: 2px;
+  }
+
+  &__option {
+    display: flex;
+    align-items: center;
+
+    width: 100%;
+    min-height: 34px;
+
+    gap: 9px;
+
+    padding: 5px 0;
+
+    border: 0;
+
+    background: transparent;
+
+    @include ibm-12-400;
+
+    text-align: left;
+
+    color: var(--cod-gray);
+
+    cursor: pointer;
+
+    transition: color 0.2s ease;
+
+    @media (any-hover: hover) {
+      &:hover {
+        color: var(--copper);
+      }
+    }
+
+    &_active {
+      font-weight: 700;
+
+      color: var(--cod-gray);
+
+      .aside__check {
+        opacity: 1;
+      }
+    }
+  }
+
+  &__check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 12px;
+
+    width: 12px;
+
+    opacity: 0;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    color: var(--kelp);
+
+    transition: opacity 0.2s ease;
+  }
+
+  // =========================
+  // RESET
+  // =========================
 
   &__reset {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    min-height: 42px;
+
+    padding: 9px 16px;
+
+    border: 0;
+
+    border-radius: 999px;
+
+    background: var(--feta);
+
+    @include ibm-12-700;
+
+    text-transform: uppercase;
+
+    color: var(--kelp);
+
+    cursor: pointer;
+
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      transform 0.2s ease;
+
+    @media (any-hover: hover) {
+      &:hover {
+        background: var(--kelp);
+
+        color: var(--janna);
+
+        transform: translateY(-1px);
+      }
+    }
+  }
+}
+
+@media (max-width: $md3) {
+  .aside {
+    min-height: 100%;
+
+    padding: 22px 20px 30px;
+
+    border-radius: 0 24px 24px 0;
+
+    box-shadow: 14px 0 40px var(--cod-gray-16);
+
+    &__head {
+      position: sticky;
+
+      z-index: 5;
+
+      top: 0;
+
+      padding-bottom: 14px;
+
+      background: var(--double-spanish-white);
+    }
+
+    &__title {
+      font-size: 14px;
+    }
+
+    &__close {
+      display: flex;
+    }
+
+    &__section {
+      padding-bottom: 24px;
+
+      &:not(:first-of-type) {
+        padding-top: 22px;
+      }
+    }
+
+    &__price-field {
+      min-height: 44px;
+    }
+
+    &__option {
+      min-height: 40px;
+
+      font-size: 13px;
+    }
+
+    &__reset {
+      min-height: 46px;
+
+      margin-top: 4px;
+    }
   }
 }
 </style>

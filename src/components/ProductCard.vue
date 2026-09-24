@@ -1,79 +1,72 @@
 <template>
   <template v-if="product">
-    <div
+    <article
       class="card"
       v-bind="$attrs"
-      :class="{ 'in-cart': isInCart }"
-      :style="{
-        '--card-color': cardColor,
-        '--card-color-rgb': cardColorRgb,
+      :class="{
+        'card_in-cart': isInCart,
       }"
-      @click="openDetails"
     >
-      <div v-if="productWeapon" class="card__weapon">
-        {{ productWeapon }}
-      </div>
-      <div v-if="product.img_url" class="card__image-wrapper">
-        <div class="card__bg _ibg-contain">
-          <img src="@/assets/img/card-bg.svg" />
+      <button type="button" class="card__preview" @click="openDetails">
+        <div v-if="productImage" class="card__image">
+          <img :src="productImage" :alt="productTitle" loading="lazy" />
         </div>
-        <div class="card__image _ibg-contain">
-          <img :src="productImage" :alt="product.title" />
+      </button>
+
+      <div class="card__body">
+        <button
+          type="button"
+          class="card__title"
+          :title="productTitle"
+          @click="openDetails"
+        >
+          {{ productTitle }}
+        </button>
+
+        <div
+          v-if="productInfoLine"
+          class="card__quality"
+          :title="productInfoLine"
+        >
+          {{ productInfoLine }}
         </div>
-      </div>
 
-      <div v-if="productName" class="card__name">
-        {{ productName }}
-      </div>
+        <div class="card__bottom">
+          <PriceFormatter
+            v-if="price"
+            :price="price"
+            reverse
+            size="size-18"
+            skip-conversion
+            class="card__price"
+          />
 
-      <div class="card__bottom">
-        <PriceFormatter
-          v-if="price"
-          :price="price"
-          reverse
-          size="size-18"
-          skip-conversion
-          class="card__price"
-        />
-
-        <div class="card__actions">
-          <BaseButton
-            v-if="!shouldShowRemove"
+          <button
             type="button"
-            variant="bordered"
-            class="card__button card__button_regular"
+            class="card__cart"
+            :class="{
+              card__cart_remove: shouldShowRemove,
+              card__cart_loading: isLoading,
+            }"
             :disabled="isLoading"
+            :aria-label="
+              shouldShowRemove ? $t('Remove from cart') : $t('Add to cart')
+            "
             @click.stop="handleCartAction"
           >
-            <template v-if="isLoading"> ... </template>
+            <span v-if="isLoading" class="card__loader"> ··· </span>
 
-            <template v-else>
-              {{ $t('Add') }}
-              <SvgIcon
-                v-if="false"
-                :icon="CartIcon"
-                class="card__button-icon"
-              />
-            </template>
-          </BaseButton>
+            <SvgIcon
+              v-else-if="shouldShowRemove"
+              :icon="TrashIcon"
+              class="card__cart-icon"
+            />
 
-          <BaseButton
-            v-else
-            type="button"
-            variant="delete"
-            class="card__button"
-            :disabled="isLoading"
-            @click.stop="handleCartAction"
-          >
-            <template v-if="isLoading"> ... </template>
-
-            <template v-else>
-              <SvgIcon :icon="TrashIcon" class="card__button-icon" />
-            </template>
-          </BaseButton>
+            <span v-else class="card__plus"> + </span>
+          </button>
         </div>
       </div>
-    </div>
+    </article>
 
     <ProductDetailsModal
       v-if="SHOW_DETAILS_MODAL && isDetailsOpen"
@@ -92,8 +85,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import PriceFormatter from '@/components/PriceFormatter.vue'
-import BaseButton from '@/components/base/BaseButton.vue'
-import { CartIcon, TrashIcon } from '@/components/icons'
+import { TrashIcon } from '@/components/icons'
 import SvgIcon from '@/components/icons/SvgIcon.vue'
 import ProductDetailsModal from '@/components/modals/ProductDetailsModal.vue'
 
@@ -107,15 +99,6 @@ defineOptions({
 const SHOW_DETAILS_MODAL = true
 
 const VITE_STATIC_DOMAIN = import.meta.env.VITE_STATIC_DOMAIN || ''
-
-const CARD_COLORS = [
-  '#3F9088',
-  '#CAA327',
-  '#B5442F',
-  '#7B4C8D',
-  '#F0EAE0',
-  '#C1587B',
-]
 
 const props = defineProps({
   product: {
@@ -166,42 +149,6 @@ const cleanProductTitle = value => {
     .trim()
 }
 
-const hexToRgb = hex => {
-  const normalized = String(hex || '')
-    .replace('#', '')
-    .trim()
-
-  if (!/^[0-9a-f]{6}$/i.test(normalized)) {
-    return '63, 144, 136'
-  }
-
-  const number = Number.parseInt(normalized, 16)
-
-  return [(number >> 16) & 255, (number >> 8) & 255, number & 255].join(', ')
-}
-
-const fallbackColor = computed(() => {
-  const source = String(
-    props.product?.title || props.product?.name || props.product?.id || '',
-  )
-
-  let hash = 0
-
-  for (let i = 0; i < source.length; i += 1) {
-    hash = (hash * 31 + source.charCodeAt(i)) >>> 0
-  }
-
-  return CARD_COLORS[hash % CARD_COLORS.length]
-})
-
-const cardColor = computed(() => {
-  return props.accentColor || fallbackColor.value
-})
-
-const cardColorRgb = computed(() => {
-  return hexToRgb(cardColor.value)
-})
-
 const cartActionId = computed(() => {
   return props.cartItemId || props.product.id
 })
@@ -217,7 +164,9 @@ const shouldShowRemove = computed(() => {
 const productImage = computed(() => {
   const imageUrl = props.product?.img_url || ''
 
-  if (!imageUrl) return ''
+  if (!imageUrl) {
+    return ''
+  }
 
   if (/^https?:\/\//i.test(imageUrl)) {
     return imageUrl
@@ -227,7 +176,9 @@ const productImage = computed(() => {
 })
 
 const price = computed(() => {
-  const value = Number.parseFloat(props.product?.internal_price ?? 0)
+  const value = Number.parseFloat(
+    props.product?.internal_price ?? props.product?.price ?? 0,
+  )
 
   return Number.isFinite(value) ? value : 0
 })
@@ -243,12 +194,16 @@ const productGame = computed(() => {
     .toLowerCase()
 })
 
+const productTitle = computed(() => {
+  return cleanProductTitle(props.product?.title || props.product?.name)
+})
+
 const productExterior = computed(() => {
   const directExterior =
     props.product?.exterior_name || props.product?.exterior || ''
 
   if (directExterior) {
-    return String(directExterior).trim().replace(/_/g, ' ')
+    return formatText(directExterior)
   }
 
   const title = String(props.product?.title || '')
@@ -258,33 +213,9 @@ const productExterior = computed(() => {
   return match ? String(match[1]).trim() : ''
 })
 
-const productWeapon = computed(() => {
-  const title = cleanProductTitle(props.product?.title)
-
-  if (!title) return ''
-
-  const [weapon] = title.split('|').map(part => part.trim())
-
-  return weapon || ''
-})
-
-const productName = computed(() => {
-  const title = cleanProductTitle(props.product?.title)
-
-  if (!title) return ''
-
-  const parts = title.split('|').map(part => part.trim())
-
-  if (parts.length > 1) {
-    return parts.slice(1).join(' | ')
-  }
-
-  return title
-})
-
 const productInfoLine = computed(() => {
   if (productGame.value === 'cs2') {
-    return productExterior.value
+    return productExterior.value || formatText(props.product?.quality)
   }
 
   if (productGame.value === 'dota2') {
@@ -309,6 +240,7 @@ const productInfoLine = computed(() => {
 const openDetails = () => {
   if (SHOW_DETAILS_MODAL) {
     isDetailsOpen.value = true
+
     return
   }
 
@@ -393,10 +325,13 @@ const addToCart = async () => {
 }
 
 const handleCartAction = async () => {
-  if (isLoading.value) return
+  if (isLoading.value) {
+    return
+  }
 
   if (shouldShowRemove.value) {
     await removeFromCart()
+
     return
   }
 
@@ -406,117 +341,429 @@ const handleCartAction = async () => {
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .card {
   position: relative;
 
+  display: flex;
+  flex-direction: column;
+
   width: 100%;
   height: 100%;
 
-  @include adaptiveValue('padding-top', 15, 10);
-  @include adaptiveValue('padding-bottom', 15, 10);
-  @include adaptiveValue('padding-left', 20, 10);
-  @include adaptiveValue('padding-right', 20, 10);
+  min-width: 0;
 
-  border: 1px solid var(--border-primary-color);
-  @include adaptiveValue('border-radius', 20, 10);
+  overflow: hidden;
 
-  background: var(--bg-third-color);
+  @include adaptiveValue('border-radius', 22, 14);
 
-  cursor: pointer;
-  transform: scale(1);
-  transition: all 0.3s ease 0s;
+  background: var(--double-spanish-white);
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 
   @media (any-hover: hover) {
     &:hover {
-      transform: scale(1.03);
+      transform: translateY(-3px);
+
+      box-shadow: 0 12px 28px var(--cod-gray-16);
     }
   }
 
-  &__weapon,
-  &__name {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  &__weapon {
-    font-size: 10px;
-    line-height: 15px;
+  // =========================
+  // IMAGE AREA
+  // =========================
 
-    &:not(:last-child) {
-      margin-bottom: 17px;
-    }
-  }
-  &__image-wrapper {
+  &__preview {
     position: relative;
-    width: 100%;
+
     display: flex;
     align-items: center;
     justify-content: center;
-    &:not(:last-child) {
-      margin-bottom: 18px;
-    }
-  }
 
-  &__bg {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    max-width: 140px;
     width: 100%;
-    height: 100%;
-    max-height: 112px;
+
+    aspect-ratio: 1.32 / 1;
+
+    @include adaptiveValue('padding', 16, 8);
+
+    border: 0;
+
+    overflow: hidden;
+
+    background: linear-gradient(145deg, #d99b5f 0%, #e3ad72 42%, #ebc592 100%);
+
+    cursor: pointer;
+
+    &::before {
+      content: '';
+
+      position: absolute;
+
+      inset: 0;
+
+      background: radial-gradient(
+        circle at 50% 42%,
+        rgba(255, 244, 219, 0.45) 0%,
+        rgba(255, 244, 219, 0.12) 40%,
+        transparent 70%
+      );
+
+      pointer-events: none;
+    }
+
+    &::after {
+      content: '';
+
+      position: absolute;
+
+      left: 10%;
+      right: 10%;
+      bottom: 8%;
+
+      height: 12%;
+
+      border-radius: 50%;
+
+      background: rgba(91, 55, 28, 0.13);
+
+      filter: blur(10px);
+
+      transform: scaleX(0.8);
+
+      pointer-events: none;
+    }
   }
 
   &__image {
     position: relative;
-    z-index: 1;
-    margin: 0 auto;
-    max-width: 160px;
-    width: 100%;
-    aspect-ratio: 1 / 0.78;
-  }
+    z-index: 2;
 
-  &__name {
-    color: var(--primary-color);
-    font-size: 14px;
-  }
-
-  &__bottom {
-    margin-top: auto;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
+    justify-content: center;
 
-  &__price {
-    align-self: flex-end;
-    :deep(.price__value) {
-      color: var(--primary-color);
+    width: 100%;
+    height: 100%;
+
+    transition: transform 0.3s ease;
+
+    img {
+      display: block;
+
+      width: 100%;
+      height: 100%;
+
+      max-width: 190px;
+
+      object-fit: contain;
+
+      filter: drop-shadow(0 8px 7px rgba(32, 30, 29, 0.14));
     }
   }
 
-  &__actions {
-    max-width: 80px;
-    flex: 1 1 100%;
+  @media (any-hover: hover) {
+    &:hover {
+      .card__image {
+        transform: scale(1.04);
+      }
+    }
   }
 
-  &__button {
-    width: 100%;
-    min-height: 32px;
-    font-size: 10px;
-    padding: 5px 8px;
+  // =========================
+  // CONTENT
+  // =========================
 
-    &-icon {
-      min-width: 16px;
-      height: 16px;
+  &__body {
+    display: flex;
+    flex-direction: column;
+
+    flex: 1 1 auto;
+
+    min-width: 0;
+
+    @include adaptiveValue('padding-top', 14, 10);
+
+    @include adaptiveValue('padding-right', 15, 10);
+
+    @include adaptiveValue('padding-bottom', 15, 10);
+
+    @include adaptiveValue('padding-left', 15, 10);
+  }
+
+  &__title {
+    display: block;
+
+    width: 100%;
+    min-width: 0;
+
+    padding: 0;
+
+    border: 0;
+
+    overflow: hidden;
+
+    background: transparent;
+
+    @include ibm-12-400;
+
+    line-height: 145%;
+
+    text-align: left;
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    color: var(--cod-gray);
+
+    cursor: pointer;
+
+    transition: color 0.2s ease;
+
+    @media (any-hover: hover) {
+      &:hover {
+        color: var(--copper);
+      }
+    }
+  }
+
+  &__quality {
+    width: 100%;
+    min-width: 0;
+
+    margin-top: 3px;
+
+    overflow: hidden;
+
+    @include ibm-12-700;
+
+    line-height: 140%;
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    color: var(--hemlock);
+  }
+
+  // =========================
+  // PRICE + CART
+  // =========================
+
+  &__bottom {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    margin-top: auto;
+
+    @include adaptiveValue('padding-top', 17, 12);
+  }
+
+  &__price {
+    min-width: 0;
+
+    :deep(.price__value) {
+      color: var(--cod-gray);
+    }
+
+    :deep(.price) {
+      white-space: nowrap;
+    }
+  }
+
+  &__cart {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 auto;
+
+    @include adaptiveValue('width', 38, 32);
+
+    @include adaptiveValue('height', 38, 32);
+
+    padding: 0;
+
+    border: 0;
+    border-radius: 50%;
+
+    background: var(--copper);
+
+    color: var(--merino);
+
+    cursor: pointer;
+
+    transition:
+      transform 0.2s ease,
+      background-color 0.2s ease,
+      opacity 0.2s ease;
+
+    @media (any-hover: hover) {
+      &:hover:not(:disabled) {
+        transform: translateY(-2px);
+
+        background: var(--tuscany);
+      }
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0) scale(0.95);
+    }
+
+    &:disabled {
+      cursor: default;
+
+      opacity: 0.65;
+    }
+
+    &_remove {
+      background: var(--kelp);
+
+      @media (any-hover: hover) {
+        &:hover:not(:disabled) {
+          background: var(--hemlock);
+        }
+      }
+    }
+  }
+
+  &__plus {
+    display: block;
+
+    transform: translateY(-1px);
+
+    font-size: 19px;
+    line-height: 1;
+    font-weight: 400;
+  }
+
+  &__cart-icon {
+    width: 15px;
+    height: 15px;
+  }
+
+  &__loader {
+    display: block;
+
+    font-size: 12px;
+    line-height: 1;
+
+    letter-spacing: 1px;
+  }
+
+  // =========================
+  // ITEM ALREADY IN CART
+  // =========================
+
+  &_in-cart {
+    .card__quality {
+      color: var(--kelp);
+    }
+  }
+}
+
+// =========================
+// TABLET
+// =========================
+
+@media (max-width: $md2) {
+  .card {
+    &__preview {
+      aspect-ratio: 1.25 / 1;
+    }
+
+    &__image {
+      img {
+        max-width: 170px;
+      }
+    }
+  }
+}
+
+// =========================
+// MOBILE
+// =========================
+
+@media (max-width: $md3) {
+  .card {
+    &__preview {
+      aspect-ratio: 1.25 / 1;
+    }
+
+    &__image {
+      img {
+        max-width: 150px;
+      }
+    }
+
+    &__title {
+      font-size: 12px;
+    }
+
+    &__quality {
+      font-size: 11px;
+    }
+  }
+}
+
+@media (max-width: $md5) {
+  .card {
+    border-radius: 14px;
+
+    &__preview {
+      min-height: 115px;
+
+      aspect-ratio: auto;
+    }
+
+    &__image {
+      img {
+        max-width: 130px;
+      }
+    }
+
+    &__body {
+      padding: 10px;
+    }
+
+    &__title {
+      font-size: 11px;
+
+      line-height: 135%;
+    }
+
+    &__quality {
+      margin-top: 4px;
+
+      font-size: 10px;
+
+      line-height: 130%;
+    }
+
+    &__bottom {
+      gap: 6px;
+
+      padding-top: 12px;
+    }
+
+    &__cart {
+      width: 30px;
+      height: 30px;
+    }
+
+    &__plus {
+      font-size: 17px;
+    }
+
+    &__cart-icon {
+      width: 13px;
+      height: 13px;
     }
   }
 }
