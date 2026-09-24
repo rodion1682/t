@@ -1,5 +1,5 @@
 <template>
-  <AuthLayout>
+  <AuthLayout show-info>
     <SignInForm @open-reset-password="openResetPassword" />
 
     <PasswordResetModal

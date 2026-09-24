@@ -414,7 +414,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="home">
-    <!-- HERO -->
 
     <div
       v-if="heroLoading"
@@ -430,8 +429,6 @@ onBeforeUnmount(() => {
       :category-count="categoryCount"
     />
 
-    <!-- CATEGORIES -->
-
     <div
       v-if="categoriesLoading"
       class="home__section-loader home__section-loader_categories"
@@ -445,21 +442,10 @@ onBeforeUnmount(() => {
       :category-count="categoryCount"
     />
 
-    <!--
-      No request required.
-      Always render immediately.
-    -->
 
     <div ref="listingTrigger" class="home__trigger" aria-hidden="true"></div>
 
     <ListingSection />
-
-    <!--
-      DROP
-
-      Request starts when the top of the
-      Listing area approaches viewport.
-    -->
 
     <div ref="dropTrigger" class="home__trigger" aria-hidden="true"></div>
 
@@ -472,13 +458,6 @@ onBeforeUnmount(() => {
 
     <DropSection v-else-if="dropLoaded && dropItem" :item="dropItem" />
 
-    <!--
-      MARKET
-
-      Request starts when dropTrigger
-      approaches the viewport.
-    -->
-
     <div
       v-if="marketLoading"
       class="home__section-loader home__section-loader_market"
@@ -487,11 +466,6 @@ onBeforeUnmount(() => {
     </div>
 
     <MarketSection v-else-if="marketLoaded" :items="marketItems" />
-
-    <!--
-      No requests required.
-      Always rendered.
-    -->
 
     <HowSection />
 

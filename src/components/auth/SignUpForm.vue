@@ -1,123 +1,194 @@
 <template>
   <div class="sign-in">
-    <div class="sign-in__title _h3">
-      {{ $t('Register') }}
+    <div class="sign-in__info info">
+      <div class="info__label">
+        {{ $t('How it works') }}
+      </div>
+
+      <div class="info__title">
+        {{ $t('No bots. A person checks every trade') }}
+      </div>
+
+      <div class="info__items">
+        <div class="info__item">
+          <div class="info__number">01</div>
+
+          <div class="info__meta">
+            <div class="info__subtitle">
+              {{ $t('Create an account') }}
+            </div>
+
+            <div class="info__text">
+              {{
+                $t(
+                  'Email and password, nothing else. Paste your Steam trade link into your profile whenever you are ready to buy.',
+                )
+              }}
+            </div>
+          </div>
+        </div>
+
+        <div class="info__item">
+          <div class="info__number">02</div>
+
+          <div class="info__meta">
+            <div class="info__subtitle">
+              {{ $t('Pick the exact item') }}
+            </div>
+
+            <div class="info__text">
+              {{
+                $t(
+                  'Filter by float, pattern and price history. What you see on the card is the item you get.',
+                )
+              }}
+            </div>
+          </div>
+        </div>
+
+        <div class="info__item">
+          <div class="info__number info__number_last">03</div>
+
+          <div class="info__meta">
+            <div class="info__subtitle">
+              {{ $t('We check it and send the offer') }}
+            </div>
+
+            <div class="info__text">
+              {{
+                $t(
+                  'A person confirms the item is in stock and matches the listing, then sends the trade offer to your link.',
+                )
+              }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info__bottom">
+        <div class="info__text">
+          {{ $t('Already have an account?') }}
+        </div>
+
+        <BaseButton
+          variant="white-bordered"
+          class="info__switch"
+          @click="
+            router.push({
+              name: 'LoginPage',
+            })
+          "
+        >
+          {{ $t('Sign In') }}
+        </BaseButton>
+      </div>
     </div>
 
-    <form class="sign-in__form" @submit.prevent="handleSignUp">
-      <div class="sign-in__inputs">
-        <BaseInput
-          v-if="IS_COMBINED_NAME_AND_SURNAME"
-          v-model="form.fullName"
-          class="sign-in__input"
-          name="fullName"
-          autocomplete="name"
-          :label="$t('Full name')"
-          :error="fieldErrors.fullName"
-        />
+    <div class="sign-in__body">
+      <div class="sign-in__title">
+        {{ $t('Create account') }}
+      </div>
 
-        <template v-else>
+      <form class="sign-in__form" @submit.prevent="handleSignUp">
+        <div class="sign-in__inputs">
           <BaseInput
-            v-model="form.firstName"
+            v-if="IS_COMBINED_NAME_AND_SURNAME"
+            v-model="form.fullName"
             class="sign-in__input"
-            name="firstName"
-            autocomplete="given-name"
-            :label="$t('Name')"
-            :error="fieldErrors.firstName"
+            name="fullName"
+            autocomplete="name"
+            :label="$t('Full name')"
+            :error="fieldErrors.fullName"
+          />
+
+          <template v-else>
+            <BaseInput
+              v-model="form.firstName"
+              class="sign-in__input"
+              name="firstName"
+              autocomplete="given-name"
+              :label="$t('Name')"
+              :error="fieldErrors.firstName"
+            />
+
+            <BaseInput
+              v-model="form.lastName"
+              class="sign-in__input"
+              name="lastName"
+              autocomplete="family-name"
+              :label="$t('Surname')"
+              :error="fieldErrors.lastName"
+            />
+          </template>
+
+          <BaseInput
+            v-model="form.email"
+            class="sign-in__input"
+            type="email"
+            name="email"
+            autocomplete="email"
+            :label="$t('E-Mail')"
+            :error="fieldErrors.email"
           />
 
           <BaseInput
-            v-model="form.lastName"
+            v-if="SHOW_PHONE"
+            v-model="form.phone"
             class="sign-in__input"
-            name="lastName"
-            autocomplete="family-name"
-            :label="$t('Surname')"
-            :error="fieldErrors.lastName"
+            type="tel"
+            name="phone"
+            autocomplete="tel"
+            :label="$t('Phone')"
+            :error="fieldErrors.phone"
           />
-        </template>
 
-        <BaseInput
-          v-model="form.email"
-          class="sign-in__input"
-          type="email"
-          name="email"
-          autocomplete="email"
-          :label="$t('Email')"
-          :error="fieldErrors.email"
-        />
+          <BaseInput
+            v-model="form.password"
+            class="sign-in__input"
+            type="password"
+            name="password"
+            autocomplete="new-password"
+            :label="$t('Create Password')"
+            :error="fieldErrors.password"
+          />
 
-        <BaseInput
-          v-if="SHOW_PHONE"
-          v-model="form.phone"
-          class="sign-in__input"
-          type="tel"
-          name="phone"
-          autocomplete="tel"
-          :label="$t('Phone')"
-          :error="fieldErrors.phone"
-        />
+          <BaseInput
+            v-model="form.confirmPassword"
+            class="sign-in__input"
+            type="password"
+            name="confirmPassword"
+            autocomplete="new-password"
+            :label="$t('Confirm password')"
+            :error="fieldErrors.confirmPassword"
+          />
+        </div>
 
-        <BaseInput
-          v-model="form.password"
-          class="sign-in__input"
-          type="password"
-          name="password"
-          autocomplete="new-password"
-          :label="$t('Create Password')"
-          :error="fieldErrors.password"
-        />
+        <div class="sign-in__terms">
+          <BaseCheckbox
+            v-model="form.termsAccepted"
+            :error="fieldErrors.termsAccepted"
+            terms
+          />
+        </div>
 
-        <BaseInput
-          v-model="form.confirmPassword"
-          class="sign-in__input"
-          type="password"
-          name="confirmPassword"
-          autocomplete="new-password"
-          :label="$t('Confirm password')"
-          :error="fieldErrors.confirmPassword"
-        />
-      </div>
-      <!-- <div class="sign-in__terms">
-        <BaseCheckbox
-          v-model="form.ageConfirmed"
-          :error="fieldErrors.ageConfirmed"
-        >
-          {{ $t('I confirm that I am a person aged 18 or over.') }}
-        </BaseCheckbox>
-      </div> -->
-      <div class="sign-in__terms">
-        <BaseCheckbox
-          v-model="form.termsAccepted"
-          :error="fieldErrors.termsAccepted"
-          terms
-        />
-      </div>
+        <div v-if="error && !hasFieldErrors" class="sign-in__error _text-error">
+          {{ error }}
+        </div>
 
-      <div v-if="error && !hasFieldErrors" class="sign-in__error _text-error">
-        {{ error }}
-      </div>
+        <div class="sign-in__actions">
+          <BaseButton
+            type="submit"
+            :disabled="isLoading"
+            class="sign-in__submit"
+          >
+            <span v-if="isLoading"> {{ $t('Creating account') }}... </span>
 
-      <BaseButton type="submit" :disabled="isLoading" class="sign-in__submit">
-        <span v-if="isLoading"> {{ $t('creating') }}... </span>
-
-        <span v-else>
-          {{ $t('Register') }}
-        </span>
-      </BaseButton>
-    </form>
-
-    <div class="sign-in__bottom">
-      <div class="sign-in__text">
-        {{ $t('Already have an account?') }}
-      </div>
-
-      <BaseButton
-        variant="bordered"
-        class="sign-in__switch"
-        @click="router.push({ name: 'LoginPage' })"
-      >
-        {{ $t('Log In') }}
-      </BaseButton>
+            <span v-else>
+              {{ $t('Create account') }}
+            </span>
+          </BaseButton>
+        </div>
+      </form>
     </div>
   </div>
 </template>
@@ -138,10 +209,12 @@ import { useAuthStore } from '@/stores/auth'
 defineEmits(['open-sign-in'])
 
 const IS_COMBINED_NAME_AND_SURNAME = false
+
 const SHOW_PHONE = false
 
 const { t } = useI18n()
 const router = useRouter()
+
 const authStore = useAuthStore()
 const toast = useToast()
 
@@ -158,7 +231,6 @@ const fieldErrors = ref({
   phone: '',
   password: '',
   confirmPassword: '',
-  // ageConfirmed: '',
   termsAccepted: '',
 })
 
@@ -170,7 +242,6 @@ const form = reactive({
   phone: '',
   password: '',
   confirmPassword: '',
-  // ageConfirmed: false,
   termsAccepted: false,
 })
 
@@ -185,6 +256,7 @@ const splitFullName = fullName => {
 
   return {
     name: parts[0] || '',
+
     surname: parts.slice(1).join(' ') || '',
   }
 }
@@ -196,6 +268,7 @@ const getNameData = () => {
 
   return {
     name: norm(form.firstName),
+
     surname: norm(form.lastName),
   }
 }
@@ -208,13 +281,8 @@ const clearFieldErrors = () => {
 
 const validateForm = () => {
   clearFieldErrors()
-  error.value = ''
 
-  /*
-   * ==============================
-   * NAME
-   * ==============================
-   */
+  error.value = ''
 
   if (IS_COMBINED_NAME_AND_SURNAME) {
     const { name, surname } = splitFullName(form.fullName)
@@ -244,12 +312,6 @@ const validateForm = () => {
     }
   }
 
-  /*
-   * ==============================
-   * EMAIL
-   * ==============================
-   */
-
   if (!norm(form.email)) {
     fieldErrors.value.email = t('Email is required')
 
@@ -268,13 +330,6 @@ const validateForm = () => {
     return false
   }
 
-  /*
-   * ==============================
-   * PHONE
-   * ==============================
-   *
-   * Only validate it when SHOW_PHONE = true.
-   */
   if (SHOW_PHONE) {
     const phone = norm(form.phone)
 
@@ -286,16 +341,6 @@ const validateForm = () => {
       return false
     }
 
-    /*
-     * Allows:
-     *
-     * +37060000000
-     * 37060000000
-     * +370 600 00000
-     *
-     * Backend allows 8–15 digits with
-     * spaces and an optional leading +.
-     */
     const normalizedPhone = phone.replace(/\s+/g, '')
 
     const phoneRegex = /^\+?\d{8,15}$/
@@ -309,12 +354,6 @@ const validateForm = () => {
     }
   }
 
-  /*
-   * ==============================
-   * PASSWORD
-   * ==============================
-   */
-
   if (!form.password) {
     fieldErrors.value.password = t('Password is required')
 
@@ -323,9 +362,6 @@ const validateForm = () => {
     return false
   }
 
-  /*
-   * Your backend minimum is 5.
-   */
   if (form.password.length < 5) {
     fieldErrors.value.password = t('Password must be at least 5 characters')
 
@@ -346,22 +382,13 @@ const validateForm = () => {
     const message = t('Passwords do not match')
 
     fieldErrors.value.password = message
+
     fieldErrors.value.confirmPassword = message
 
     error.value = message
 
     return false
   }
-
-  // if (!form.ageConfirmed) {
-  //   fieldErrors.value.ageConfirmed = t(
-  //     'You must confirm that you are 18 years of age or older',
-  //   )
-
-  //   error.value = fieldErrors.value.ageConfirmed
-
-  //   return false
-  // }
 
   if (!form.termsAccepted) {
     fieldErrors.value.termsAccepted = t(
@@ -387,16 +414,16 @@ const buildRegisterPayload = () => {
 
   const payload = {
     name,
+
     surname,
+
     email: norm(form.email),
+
     password: form.password,
+
     passConfirm: form.confirmPassword,
   }
 
-  /*
-   * The phone property does not exist
-   * at all when SHOW_PHONE = false.
-   */
   if (SHOW_PHONE) {
     payload.phone = norm(form.phone)
   }
@@ -417,10 +444,6 @@ const handleBackendErrors = backendErrors => {
     passConfirm: 'confirmPassword',
   }
 
-  /*
-   * Only map backend phone errors when the
-   * phone field actually exists in the UI.
-   */
   if (SHOW_PHONE) {
     map.phone = 'phone'
     map.phoneE164 = 'phone'
@@ -429,11 +452,9 @@ const handleBackendErrors = backendErrors => {
   Object.entries(backendErrors || {}).forEach(([field, messages]) => {
     const key = map[field]
 
-    /*
-     * Ignore fields we intentionally don't
-     * expose, such as phone when SHOW_PHONE=false.
-     */
-    if (!key) return
+    if (!key) {
+      return
+    }
 
     if (!(key in fieldErrors.value)) {
       return
@@ -446,7 +467,9 @@ const handleBackendErrors = backendErrors => {
 }
 
 const handleSignUp = async () => {
-  if (isSubmitting) return
+  if (isSubmitting) {
+    return
+  }
 
   isSubmitting = true
 
@@ -462,6 +485,14 @@ const handleSignUp = async () => {
     const payload = buildRegisterPayload()
 
     await authStore.register(payload)
+
+    const redirectTo = router.currentRoute.value.query.redirect
+
+    if (redirectTo) {
+      await router.push(redirectTo)
+
+      return
+    }
 
     await router.push({
       name: 'account',

@@ -1,5 +1,5 @@
 <template>
-  <AuthLayout page="sign-up">
+  <AuthLayout show-info page="sign-up">
     <SignUpForm />
   </AuthLayout>
 </template>

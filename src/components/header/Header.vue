@@ -197,7 +197,7 @@ const SHOW_SELL_SKIN_MODAL = false
 
 const HOME_SECTIONS = ['categories', 'weekly-drops', 'how-it-works']
 
-const SECTION_GAP = 16
+const SECTION_OFFSET = 50
 
 const route = useRoute()
 const router = useRouter()
@@ -211,18 +211,17 @@ const { userBalance } = storeToRefs(userStore)
 
 const { marketRoute, syncGame } = useGame()
 
-const headerRef = ref(null)
-
 const isMobileMenuVisible = ref(false)
+
 const isScrolled = ref(false)
+
 const isSellSkinsOpen = ref(false)
+
 const isCartOpen = ref(false)
 
 const activeSection = ref(null)
 
 let scrollFrame = null
-let sectionScrollFrame = null
-let sectionScrollTimeout = null
 
 const isHomePage = computed(() => {
   return route.name === 'HomePage'
@@ -261,6 +260,7 @@ const goToLogin = () => {
 
   router.push({
     name: 'LoginPage',
+
     query: {
       redirect: route.fullPath,
     },
@@ -272,155 +272,15 @@ const goToRegister = () => {
 
   router.push({
     name: 'RegisterPage',
+
     query: {
       redirect: route.fullPath,
     },
   })
 }
 
-const getCurrentHeaderBottom = () => {
-  if (!headerRef.value) {
-    return 0
-  }
-
-  const rect = headerRef.value.getBoundingClientRect()
-
-  return Math.max(0, rect.bottom)
-}
-
-const getSectionDocumentTop = element => {
+const getSectionTop = element => {
   return element.getBoundingClientRect().top + window.scrollY
-}
-
-const getSectionTargetTop = element => {
-  const sectionTop = getSectionDocumentTop(element)
-
-  const headerBottom = getCurrentHeaderBottom()
-
-  return Math.max(0, sectionTop - headerBottom - SECTION_GAP)
-}
-
-const stopSectionScrollTracking = () => {
-  if (sectionScrollFrame) {
-    cancelAnimationFrame(sectionScrollFrame)
-    sectionScrollFrame = null
-  }
-
-  if (sectionScrollTimeout) {
-    clearTimeout(sectionScrollTimeout)
-    sectionScrollTimeout = null
-  }
-}
-
-const correctSectionPosition = element => {
-  if (!element) {
-    return
-  }
-
-  const headerBottom = getCurrentHeaderBottom()
-
-  const rect = element.getBoundingClientRect()
-
-  const expectedTop = headerBottom + SECTION_GAP
-
-  const difference = rect.top - expectedTop
-
-  if (Math.abs(difference) <= 1) {
-    return
-  }
-
-  window.scrollBy({
-    top: difference,
-    left: 0,
-    behavior: 'auto',
-  })
-}
-
-const trackSectionWhileScrolling = element => {
-  stopSectionScrollTracking()
-
-  let lastScrollY = window.scrollY
-  let stableFrames = 0
-
-  const track = () => {
-    if (!element) {
-      stopSectionScrollTracking()
-      return
-    }
-
-    /*
-     * Measure the header on EVERY animation frame.
-     *
-     * This means if the header changes:
-     * - top
-     * - height
-     * - padding
-     * - border
-     * - responsive size
-     * - .scrolled state
-     *
-     * we always use its actual rendered position.
-     */
-    const headerBottom = getCurrentHeaderBottom()
-
-    const sectionRect = element.getBoundingClientRect()
-
-    const desiredSectionTop = headerBottom + SECTION_GAP
-
-    const difference = sectionRect.top - desiredSectionTop
-
-    const currentScrollY = window.scrollY
-
-    const scrollDifference = Math.abs(currentScrollY - lastScrollY)
-
-    /*
-     * Browser smooth scroll is still moving.
-     */
-    if (scrollDifference > 0.5) {
-      stableFrames = 0
-    } else {
-      stableFrames += 1
-    }
-
-    lastScrollY = currentScrollY
-
-    /*
-     * Once native smooth scrolling has settled,
-     * correct using the header's CURRENT dimensions.
-     *
-     * At this point .scrolled and responsive CSS
-     * have already changed the actual header.
-     */
-    if (stableFrames >= 3) {
-      if (Math.abs(difference) > 1) {
-        window.scrollBy({
-          top: difference,
-          left: 0,
-          behavior: 'auto',
-        })
-      }
-
-      stopSectionScrollTracking()
-
-      updateActiveSection()
-
-      return
-    }
-
-    sectionScrollFrame = requestAnimationFrame(track)
-  }
-
-  sectionScrollFrame = requestAnimationFrame(track)
-
-  /*
-   * Safety fallback in case the browser keeps reporting
-   * tiny scroll changes for a long time.
-   */
-  sectionScrollTimeout = setTimeout(() => {
-    correctSectionPosition(element)
-    stopSectionScrollTracking()
-    updateActiveSection()
-  }, 1500)
 }
 
 const scrollToSection = async sectionId => {
@@ -432,25 +292,15 @@ const scrollToSection = async sectionId => {
     return
   }
 
-  stopSectionScrollTracking()
-
-  /*
-   * Initial destination uses whatever header dimensions
-   * exist at the exact moment the click happens.
-   */
-  const targetTop = getSectionTargetTop(element)
+  const sectionTop = getSectionTop(element)
 
   window.scrollTo({
-    top: targetTop,
+    top: Math.max(0, sectionTop - SECTION_OFFSET),
+
+    left: 0,
+
     behavior: 'smooth',
   })
-
-  /*
-   * While that scroll happens, .scrolled may change
-   * the header dimensions. We therefore keep measuring
-   * the REAL header and correct after scrolling settles.
-   */
-  trackSectionWhileScrolling(element)
 }
 
 const waitForSection = async (sectionId, attempts = 30) => {
@@ -479,6 +329,7 @@ const goToHomeSection = async sectionId => {
   if (!isHomePage.value) {
     await router.push({
       name: 'HomePage',
+
       hash: `#${sectionId}`,
     })
 
@@ -494,11 +345,7 @@ const goToHomeSection = async sectionId => {
   }
 
   if (route.hash !== `#${sectionId}`) {
-    window.history.replaceState(
-      null,
-      '',
-      `${route.path}${route.hash ? '' : ''}#${sectionId}`,
-    )
+    window.history.replaceState(null, '', `${route.path}#${sectionId}`)
   }
 
   await scrollToSection(sectionId)
@@ -507,30 +354,11 @@ const goToHomeSection = async sectionId => {
 const updateActiveSection = () => {
   if (!isHomePage.value) {
     activeSection.value = null
+
     return
   }
 
-  /*
-   * This is ALWAYS the actual header bottom right now.
-   *
-   * Example:
-   *
-   * top page:
-   * header top = 16
-   * height = 63
-   * bottom = 79
-   *
-   * while transition is running:
-   * bottom could be 74, 68, 59...
-   *
-   * scrolled:
-   * top = 0
-   * height = 50
-   * bottom = 50
-   *
-   * Nothing is hardcoded here.
-   */
-  const activationLine = getCurrentHeaderBottom() + SECTION_GAP
+  const activationLine = SECTION_OFFSET
 
   let currentSection = null
 
@@ -545,6 +373,7 @@ const updateActiveSection = () => {
 
     if (rect.top <= activationLine && rect.bottom > activationLine) {
       currentSection = sectionId
+
       break
     }
   }
@@ -553,13 +382,6 @@ const updateActiveSection = () => {
 }
 
 const handleScroll = () => {
-  /*
-   * Only this controls the header visual state.
-   *
-   * We do NOT manually guess what its height will be.
-   * CSS changes the header, then measurements read
-   * the resulting rendered dimensions.
-   */
   isScrolled.value = window.scrollY > 0
 
   if (scrollFrame) {
@@ -579,11 +401,6 @@ const handleResize = () => {
   }
 
   scrollFrame = requestAnimationFrame(() => {
-    /*
-     * Responsive SCSS may have changed the header.
-     * getBoundingClientRect() now gives us the new
-     * actual dimensions automatically.
-     */
     updateActiveSection()
 
     scrollFrame = null
@@ -599,6 +416,7 @@ const openSellSkinsFromNav = () => {
 
   if (SHOW_SELL_SKIN_MODAL) {
     isSellSkinsOpen.value = true
+
     return
   }
 
@@ -627,9 +445,11 @@ const unlockBodyScroll = () => {
 
 watch(
   () => route.query.category,
+
   category => {
     syncGame(category)
   },
+
   {
     immediate: true,
   },
@@ -637,6 +457,7 @@ watch(
 
 watch(
   () => route.fullPath,
+
   async () => {
     closeMobileMenu()
 
@@ -648,6 +469,7 @@ watch(
 
 watch(
   [isMobileMenuVisible, isSellSkinsOpen, isCartOpen],
+
   ([menuOpen, sellModalOpen, cartModalOpen]) => {
     if (menuOpen || sellModalOpen || cartModalOpen) {
       lockBodyScroll()
@@ -663,13 +485,17 @@ const refreshDynamicAdapt = async () => {
   initDynamicAdapt('max')
 }
 
-watch(isAuthenticated, async value => {
-  if (value) {
-    await refreshDynamicAdapt()
-  } else {
-    destroyDynamicAdapt()
-  }
-})
+watch(
+  isAuthenticated,
+
+  async value => {
+    if (value) {
+      await refreshDynamicAdapt()
+    } else {
+      destroyDynamicAdapt()
+    }
+  },
+)
 
 onMounted(async () => {
   await refreshDynamicAdapt()
@@ -699,9 +525,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   destroyDynamicAdapt()
-  unlockBodyScroll()
 
-  stopSectionScrollTracking()
+  unlockBodyScroll()
 
   if (scrollFrame) {
     cancelAnimationFrame(scrollFrame)
@@ -712,7 +537,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
 })
 </script>
-
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
 @use '@/assets/styles/fonts' as *;

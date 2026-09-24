@@ -278,7 +278,7 @@ const openProduct = item => {
 
 .market {
   @include adaptiveValue('padding-top', 60, 25);
-  @include adaptiveValue('padding-bottom', 90, 50);
+  @include adaptiveValue('padding-bottom', 0, 25);
 
   &__head {
     display: flex;

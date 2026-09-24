@@ -204,13 +204,13 @@
   background-color: transparent;
   display: block;
   width: fit-content;
-  font-weight: 400;
-  font-size: 16px;
+  font-weight: 700;
+  font-size: 14px;
   line-height: 150%;
   transition: all 0.3s ease 0s;
   border-bottom: 1px solid transparent;
-  font-family: var(--font-inter);
-  color: var(--link-color);
+  font-family: var(--font-ibm-plex);
+  color: var(--rope);
   @media (any-hover: hover) {
     &:hover {
       border-color: inherit;

@@ -5,7 +5,7 @@ const { marketRoute } = useGame()
 </script>
 
 <template>
-  <section class="how">
+  <section id="how-it-works" class="how">
     <div class="how__inner _cnt">
       <div class="how__top">
         <div class="how__label">{{ $t('How it works') }}</div>

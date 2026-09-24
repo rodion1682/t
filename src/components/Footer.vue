@@ -224,7 +224,7 @@ import { useStaticStore } from '@/stores/static'
 
 const SHOW_SELL_SKIN_MODAL = false
 
-const emit = defineEmits(['open-cookie-settings'])
+const SECTION_OFFSET = 50
 
 const route = useRoute()
 const router = useRouter()
@@ -232,6 +232,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 const staticStore = useStaticStore()
+
+const emit = defineEmits(['open-cookie-settings'])
 
 const isSellSkinsOpen = ref(false)
 
@@ -291,26 +293,59 @@ const formattedCopyright = computed(() => {
   return `© ${year} ${text}`
 })
 
-const goToHomeSection = async sectionId => {
-  const hash = `#${sectionId}`
+const getSectionTop = element => {
+  return element.getBoundingClientRect().top + window.scrollY
+}
 
-  if (route.name === 'HomePage') {
+const scrollToSection = async sectionId => {
+  await nextTick()
+
+  const element = document.getElementById(sectionId)
+
+  if (!element) {
+    return false
+  }
+
+  const sectionTop = getSectionTop(element)
+
+  window.scrollTo({
+    top: Math.max(0, sectionTop - SECTION_OFFSET),
+
+    left: 0,
+
+    behavior: 'smooth',
+  })
+
+  return true
+}
+
+const waitForSection = async (sectionId, attempts = 60) => {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await nextTick()
+
     const element = document.getElementById(sectionId)
 
     if (element) {
-      element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      })
-
-      if (route.hash !== hash) {
-        window.history.replaceState(
-          null,
-          '',
-          `${route.path}${route.query ? '' : ''}${hash}`,
-        )
-      }
+      return element
     }
+
+    await new Promise(resolve => {
+      requestAnimationFrame(resolve)
+    })
+  }
+
+  return null
+}
+
+const goToHomeSection = async sectionId => {
+  const hash = `#${sectionId}`
+
+  if (isHomePage.value) {
+    if (route.hash !== hash) {
+      window.history.replaceState(null, '', `${route.path}${hash}`)
+    }
+
+    await scrollToSection(sectionId)
 
     return
   }
@@ -319,12 +354,21 @@ const goToHomeSection = async sectionId => {
     name: 'HomePage',
     hash,
   })
+
+  const element = await waitForSection(sectionId)
+
+  if (!element) {
+    return
+  }
+
+  await scrollToSection(sectionId)
 }
 
 const openSellSkins = () => {
   if (!isAuthenticated.value) {
     router.push({
       name: 'LoginPage',
+
       query: {
         redirect: route.fullPath,
       },
@@ -335,6 +379,7 @@ const openSellSkins = () => {
 
   if (SHOW_SELL_SKIN_MODAL) {
     isSellSkinsOpen.value = true
+
     return
   }
 
@@ -389,6 +434,7 @@ const sortedStaticPages = computed(() => {
   return [...pages.value]
     .map(page => ({
       ...page,
+
       __slug: pageSlug(page),
     }))
     .filter(page => page.__slug)
