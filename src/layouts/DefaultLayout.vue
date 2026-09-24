@@ -65,21 +65,19 @@ const openCookieSettings = async () => {
   &::before {
     content: '';
     position: absolute;
-    inset: 0;
-
-    width: 100%;
-    max-width: 1440px;
-
-    left: 50%;
-    transform: translateX(-50%);
-
-    background-image: url('@/assets/img/page-bg.png');
-    background-position: top center;
-    background-size: 1440px auto;
-    background-repeat: repeat-y;
-
-    pointer-events: none;
+    inset: 0px;
     z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+    background-image: url('@/assets/img/page-bg.jpg');
+    left: 50%;
+    max-width: 1440px;
+    background-size: 100% auto;
+    background-position: 50% 0px;
+    background-repeat: repeat;
+    opacity: 0.14;
+    transform: translateZ(0px) translateX(-50%);
+    will-change: transform;
   }
 
   &__main {

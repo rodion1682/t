@@ -121,12 +121,8 @@ const openProduct = item => {
 
 <template>
   <section class="hero">
-    <div class="hero__bg-top _ibg">
-      <img src="@/assets/img/hero-bg-top.png" />
-    </div>
-    <div class="hero__bg-right _ibg">
-      <img src="@/assets/img/hero-bg.png" />
-    </div>
+    <div class="hero__bg-top"></div>
+    <div class="hero__bg-right"></div>
     <div class="hero__inner _cnt">
       <div class="hero__top top">
         <div class="top__label">
@@ -258,20 +254,34 @@ const openProduct = item => {
   @include adaptiveValue('padding-top', 60, 25);
   &__bg-top {
     position: absolute;
-    top: 0;
+    top: -260px;
     left: 50%;
-    transform: translate(-50%, -15%);
-
-    width: 100%;
-    height: 100%;
+    width: 1100px;
+    height: 640px;
+    margin-left: -550px;
+    border-radius: 50%;
+    background: radial-gradient(
+      closest-side,
+      var(--chrome-white),
+      transparent 72%
+    );
+    opacity: 0.75;
+    pointer-events: none;
   }
   &__bg-right {
     position: absolute;
-    right: 0;
-    bottom: 10%;
-    transform: translate(25%, 0px);
-    height: 50%;
-    width: 100%;
+    top: 340px;
+    right: -200px;
+    width: 560px;
+    height: 560px;
+    border-radius: 50%;
+    background: radial-gradient(
+      closest-side,
+      var(--other-color-1),
+      transparent 70%
+    );
+    opacity: 0.8;
+    pointer-events: none;
   }
 
   &__inner {

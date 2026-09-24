@@ -1,119 +1,66 @@
 <template>
   <footer class="footer">
-    <div class="footer__inner _cnt">
-      <div class="footer__main">
-        <div class="footer__brand">
-          <RouterLink :to="{ name: 'HomePage' }" class="footer__logo">
-            <img src="@/assets/img/logo-full.svg" alt="OchraSkins" />
-          </RouterLink>
+    <div class="footer__main _cnt">
+      <div class="footer__brand">
+        <RouterLink :to="{ name: 'HomePage' }" class="footer__logo">
+          <img src="@/assets/img/logo-full.svg" alt="OchraSkins" />
+        </RouterLink>
 
-          <p class="footer__description">
-            {{ $t('A marketplace for Counter-Strike 2 items.') }}
-            <br />
-            {{ $t('Not affiliated with Valve Corporation.') }}
-          </p>
+        <p class="footer__description">
+          {{ $t('A marketplace for Counter-Strike 2 items.') }}
+          <br />
+          {{ $t('Not affiliated with Valve Corporation.') }}
+        </p>
+      </div>
+
+      <div class="footer__column">
+        <div class="footer__title">
+          {{ $t('Market') }}
         </div>
 
-        <div class="footer__column">
-          <div class="footer__title">
-            {{ $t('Market') }}
-          </div>
+        <div class="footer__links">
+          <template v-if="isHomePage">
+            <RouterLink
+              :to="{
+                name: 'ProductListPage',
+                query: {
+                  category: 'cs2',
+                },
+              }"
+              class="footer__link"
+            >
+              {{ $t('All items') }}
+            </RouterLink>
 
-          <div class="footer__links">
-            <template v-if="isHomePage">
-              <RouterLink
-                :to="{
-                  name: 'ProductListPage',
-                  query: {
-                    category: 'cs2',
-                  },
-                }"
-                class="footer__link"
-              >
-                {{ $t('All items') }}
-              </RouterLink>
+            <button
+              type="button"
+              class="footer__link"
+              @click="goToHomeSection('categories')"
+            >
+              {{ $t('Categories') }}
+            </button>
 
-              <button
-                type="button"
-                class="footer__link"
-                @click="goToHomeSection('categories')"
-              >
-                {{ $t('Categories') }}
-              </button>
+            <button
+              type="button"
+              class="footer__link"
+              @click="goToHomeSection('weekly-drops')"
+            >
+              {{ $t('Weekly drops') }}
+            </button>
+          </template>
 
-              <button
-                type="button"
-                class="footer__link"
-                @click="goToHomeSection('weekly-drops')"
-              >
-                {{ $t('Weekly drops') }}
-              </button>
-            </template>
-
-            <template v-else>
-              <RouterLink
-                :to="{
-                  name: 'ProductListPage',
-                  query: {
-                    category: 'cs2',
-                  },
-                }"
-                class="footer__link"
-              >
-                {{ $t('Buy skins') }}
-              </RouterLink>
-
-              <button
-                v-if="isOfferEnabled"
-                type="button"
-                class="footer__link"
-                @click="openSellSkins"
-              >
-                {{ $t('Sell skins') }}
-              </button>
-            </template>
-          </div>
-        </div>
-
-        <div class="footer__column">
-          <div class="footer__title">
-            {{ $t('Account') }}
-          </div>
-
-          <div class="footer__links">
-            <template v-if="!isAuthenticated">
-              <RouterLink :to="{ name: 'LoginPage' }" class="footer__link">
-                {{ $t('Sign in') }}
-              </RouterLink>
-
-              <RouterLink
-                v-if="settingsStore.isRegistrationEnabled"
-                :to="{ name: 'RegisterPage' }"
-                class="footer__link"
-              >
-                {{ $t('Create account') }}
-              </RouterLink>
-            </template>
-
-            <template v-else>
-              <RouterLink
-                :to="{ name: 'account-balance' }"
-                class="footer__link"
-              >
-                {{ $t('Top up') }}
-              </RouterLink>
-
-              <RouterLink :to="{ name: 'CartPage' }" class="footer__link">
-                {{ $t('Cart') }}
-              </RouterLink>
-
-              <RouterLink
-                :to="{ name: 'account-payment-history' }"
-                class="footer__link"
-              >
-                {{ $t('Payment history') }}
-              </RouterLink>
-            </template>
+          <template v-else>
+            <RouterLink
+              :to="{
+                name: 'ProductListPage',
+                query: {
+                  category: 'cs2',
+                },
+              }"
+              class="footer__link"
+            >
+              {{ $t('Buy skins') }}
+            </RouterLink>
 
             <button
               v-if="isOfferEnabled"
@@ -121,92 +68,141 @@
               class="footer__link"
               @click="openSellSkins"
             >
-              {{ $t('Sell your skins') }}
+              {{ $t('Sell skins') }}
             </button>
-          </div>
-        </div>
-
-        <div class="footer__column">
-          <div class="footer__title">
-            {{ $t('Support') }}
-          </div>
-
-          <div class="footer__links">
-            <RouterLink :to="{ name: 'FAQ' }" class="footer__link">
-              {{ $t('Help centre') }}
-            </RouterLink>
-
-            <template v-for="page in sortedStaticPages" :key="page.id">
-              <button
-                v-if="isCookiePage(page)"
-                type="button"
-                class="footer__link"
-                @click="openCookieSettings"
-              >
-                {{ page.title }}
-              </button>
-
-              <RouterLink
-                v-else
-                :to="getStaticPagePath(page)"
-                class="footer__link"
-              >
-                {{ page.title }}
-              </RouterLink>
-            </template>
-
-            <RouterLink :to="{ name: 'ContactPage' }" class="footer__link">
-              {{ $t('Contact us') }}
-            </RouterLink>
-          </div>
+          </template>
         </div>
       </div>
 
-      <div v-if="footerImages.length" class="footer__payments">
-        <div class="footer__payments-label">
-          {{ $t('Payment methods') }}
+      <div class="footer__column">
+        <div class="footer__title">
+          {{ $t('Account') }}
         </div>
 
-        <div class="footer__payment-list">
-          <div
-            v-for="method in footerImages"
-            :key="method.id"
-            class="footer__payment"
+        <div class="footer__links">
+          <template v-if="!isAuthenticated">
+            <RouterLink :to="{ name: 'LoginPage' }" class="footer__link">
+              {{ $t('Sign in') }}
+            </RouterLink>
+
+            <RouterLink
+              v-if="settingsStore.isRegistrationEnabled"
+              :to="{ name: 'RegisterPage' }"
+              class="footer__link"
+            >
+              {{ $t('Create account') }}
+            </RouterLink>
+          </template>
+
+          <template v-else>
+            <RouterLink :to="{ name: 'account-balance' }" class="footer__link">
+              {{ $t('Top up') }}
+            </RouterLink>
+
+            <RouterLink :to="{ name: 'CartPage' }" class="footer__link">
+              {{ $t('Cart') }}
+            </RouterLink>
+
+            <RouterLink
+              :to="{ name: 'account-payment-history' }"
+              class="footer__link"
+            >
+              {{ $t('Payment history') }}
+            </RouterLink>
+          </template>
+
+          <button
+            v-if="isOfferEnabled"
+            type="button"
+            class="footer__link"
+            @click="openSellSkins"
           >
-            <img :src="method.url" alt="" />
-          </div>
+            {{ $t('Sell your skins') }}
+          </button>
         </div>
       </div>
 
-      <div class="footer__bottom">
-        <div v-if="formattedCopyright" class="footer__copy">
-          {{ formattedCopyright }}
+      <div class="footer__column">
+        <div class="footer__title">
+          {{ $t('Support') }}
         </div>
 
-        <div v-if="socialLinks.length" class="footer__socials">
-          <a
-            v-for="social in socialLinks"
-            :key="social.id"
-            :href="social.link"
-            class="footer__social"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img :src="social.img" :alt="social.title || ''" />
-          </a>
-        </div>
+        <div class="footer__links">
+          <RouterLink :to="{ name: 'FAQ' }" class="footer__link">
+            {{ $t('Help centre') }}
+          </RouterLink>
 
-        <a v-if="supportEmail" :href="supportEmailHref" class="footer__email">
-          {{ supportEmail }}
+          <template v-for="page in sortedStaticPages" :key="page.id">
+            <button
+              v-if="isCookiePage(page)"
+              type="button"
+              class="footer__link"
+              @click="openCookieSettings"
+            >
+              {{ page.title }}
+            </button>
+
+            <RouterLink
+              v-else
+              :to="getStaticPagePath(page)"
+              class="footer__link"
+            >
+              {{ page.title }}
+            </RouterLink>
+          </template>
+
+          <RouterLink :to="{ name: 'ContactPage' }" class="footer__link">
+            {{ $t('Contact us') }}
+          </RouterLink>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer__separator"></div>
+    <div v-if="footerImages.length" class="footer__payments _cnt">
+      <div class="footer__payments-label">
+        {{ $t('Payment methods') }}
+      </div>
+
+      <div class="footer__payment-list">
+        <div
+          v-for="method in footerImages"
+          :key="method.id"
+          class="footer__payment"
+        >
+          <img :src="method.url" alt="" />
+        </div>
+      </div>
+    </div>
+
+    <div class="footer__bottom _cnt">
+      <div v-if="formattedCopyright" class="footer__copy">
+        {{ formattedCopyright }}
+      </div>
+
+      <div v-if="socialLinks.length" class="footer__socials">
+        <a
+          v-for="social in socialLinks"
+          :key="social.id"
+          :href="social.link"
+          class="footer__social"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img :src="social.img" :alt="social.title || ''" />
         </a>
       </div>
 
-      <div
-        v-if="formattedRequisites"
-        class="footer__requisites"
-        v-html="formattedRequisites"
-      />
+      <a v-if="supportEmail" :href="supportEmailHref" class="footer__email">
+        {{ supportEmail }}
+      </a>
     </div>
+
+    <div
+      v-if="formattedRequisites"
+      class="footer__requisites _cnt"
+      v-html="formattedRequisites"
+    />
   </footer>
 
   <SellSkinsModal
@@ -426,10 +422,16 @@ onMounted(async () => {
 .footer {
   position: relative;
 
-  @include adaptiveValue('padding-top', 65, 40);
-  @include adaptiveValue('padding-bottom', 30, 25);
+  @include adaptiveValue('padding-top', 56, 25);
+  @include adaptiveValue('padding-bottom', 50, 25);
 
   background-color: var(--feta);
+  border-style: solid;
+  border-color: var(--kelp);
+  @include adaptiveValue('border-top-width', 3, 1);
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
 
   &__main {
     display: grid;
@@ -524,18 +526,19 @@ onMounted(async () => {
       color: var(--cod-gray);
     }
   }
-
+  &__separator {
+    border-style: solid;
+    border-color: var(--kelp);
+    @include adaptiveValue('border-top-width', 3, 1);
+    @include adaptiveValue('margin-top', 25, 18);
+    @include adaptiveValue('padding-top', 25, 18);
+  }
   &__payments {
     display: flex;
     align-items: center;
     justify-content: space-between;
 
     gap: 25px;
-
-    @include adaptiveValue('margin-top', 50, 35);
-    @include adaptiveValue('padding-top', 24, 20);
-
-    border-top: 1px solid var(--cod-gray-07);
   }
 
   &__payments-label {
@@ -588,7 +591,10 @@ onMounted(async () => {
 
     gap: 25px;
 
-    @include adaptiveValue('margin-top', 22, 18);
+    @include adaptiveValue('margin-top', 25, 18);
+    &:not(:last-child) {
+      @include adaptiveValue('margin-bottom', 25, 18);
+    }
   }
 
   &__copy {
