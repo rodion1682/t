@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -7,21 +8,23 @@ import BaseInput from '@/components/base/BaseInput.vue'
 import { SearchIcon } from '@/components/icons'
 import SvgIcon from '@/components/icons/SvgIcon.vue'
 import { useGame } from '@/composables/useGame'
-import { useI18n } from 'vue-i18n'
 
-defineProps({
+const props = defineProps({
   loading: {
     type: Boolean,
     default: false,
   },
+
   heroItems: {
     type: Array,
     default: () => [],
   },
+
   totalItems: {
     type: Number,
     default: 0,
   },
+
   categoryCount: {
     type: Number,
     default: 0,
@@ -34,7 +37,22 @@ const { marketRoute } = useGame()
 
 const VITE_STATIC_DOMAIN = import.meta.env.VITE_STATIC_DOMAIN || ''
 
+const AUTOPLAY_DELAY = 2600
+const DRAG_THRESHOLD = 45
+
 const search = ref('')
+
+const activeIndex = ref(props.heroItems.length > 1 ? 1 : 0)
+
+const direction = ref(1)
+
+const isPaused = ref(false)
+const isDragging = ref(false)
+
+const dragStartX = ref(0)
+const dragCurrentX = ref(0)
+
+let autoplayTimer = null
 
 const popularItems = [
   {
@@ -63,6 +81,14 @@ const popularItems = [
   },
 ]
 
+const dragOffset = computed(() => {
+  if (!isDragging.value) {
+    return 0
+  }
+
+  return dragCurrentX.value - dragStartX.value
+})
+
 const formatNumber = value => {
   return new Intl.NumberFormat('en-US').format(Number(value || 0))
 }
@@ -88,6 +114,7 @@ const submitSearch = () => {
 
   router.push({
     ...marketRoute.value,
+
     query: {
       category: 'cs2',
       search: value,
@@ -98,6 +125,7 @@ const submitSearch = () => {
 const openPopular = item => {
   router.push({
     ...marketRoute.value,
+
     query: {
       category: 'cs2',
       ...item.query,
@@ -112,17 +140,300 @@ const openProduct = item => {
 
   router.push({
     name: 'ProductDetailsPage',
+
     params: {
       productId: item.id,
     },
   })
 }
+
+const getOffset = index => {
+  return index - activeIndex.value
+}
+
+const getProductStyle = index => {
+  const offset = getOffset(index)
+  const distance = Math.abs(offset)
+
+  let translate = 0
+  let scale = 0.62
+  let opacity = 0
+  let zIndex = 0
+
+  if (offset === 0) {
+    translate = 0
+    scale = 1
+    opacity = 1
+    zIndex = 3
+  } else if (offset === -1) {
+    translate = -92
+    scale = 0.69
+    opacity = 0.65
+    zIndex = 2
+  } else if (offset === 1) {
+    translate = 92
+    scale = 0.69
+    opacity = 0.65
+    zIndex = 2
+  } else {
+    translate = offset < 0 ? -145 : 145
+
+    scale = 0.62
+    opacity = 0
+    zIndex = 1
+  }
+
+  let dragTranslate = 0
+
+  if (isDragging.value) {
+    dragTranslate = dragOffset.value / 4
+  }
+
+  return {
+    transform: `
+      translateX(
+        calc(
+          -50% +
+          ${translate}% +
+          ${dragTranslate}px
+        )
+      )
+      scale(${scale})
+    `,
+
+    opacity,
+
+    zIndex,
+
+    pointerEvents: distance <= 1 ? 'auto' : 'none',
+
+    transition: isDragging.value
+      ? 'none'
+      : `
+          transform 900ms
+            cubic-bezier(.45,.05,.25,1),
+          opacity 900ms
+            cubic-bezier(.45,.05,.25,1),
+          box-shadow 900ms
+            cubic-bezier(.45,.05,.25,1)
+        `,
+  }
+}
+
+const goNext = () => {
+  const lastIndex = props.heroItems.length - 1
+
+  if (lastIndex <= 0) {
+    return
+  }
+
+  if (activeIndex.value >= lastIndex) {
+    direction.value = -1
+
+    activeIndex.value = Math.max(0, activeIndex.value - 1)
+
+    return
+  }
+
+  activeIndex.value += 1
+}
+
+const goPrevious = () => {
+  if (props.heroItems.length <= 1) {
+    return
+  }
+
+  if (activeIndex.value <= 0) {
+    direction.value = 1
+
+    activeIndex.value = Math.min(
+      props.heroItems.length - 1,
+      activeIndex.value + 1,
+    )
+
+    return
+  }
+
+  activeIndex.value -= 1
+}
+
+const autoplayStep = () => {
+  if (isPaused.value || isDragging.value || props.heroItems.length <= 1) {
+    return
+  }
+
+  if (direction.value === 1) {
+    goNext()
+  } else {
+    goPrevious()
+  }
+}
+
+const stopAutoplay = () => {
+  if (!autoplayTimer) {
+    return
+  }
+
+  window.clearInterval(autoplayTimer)
+
+  autoplayTimer = null
+}
+
+const startAutoplay = () => {
+  stopAutoplay()
+
+  if (props.heroItems.length <= 1) {
+    return
+  }
+
+  autoplayTimer = window.setInterval(autoplayStep, AUTOPLAY_DELAY)
+}
+
+const restartAutoplay = () => {
+  stopAutoplay()
+  startAutoplay()
+}
+
+const pauseCarousel = () => {
+  isPaused.value = true
+}
+
+const resumeCarousel = () => {
+  isPaused.value = false
+}
+
+const selectSlide = index => {
+  if (isDragging.value) {
+    return
+  }
+
+  const offset = getOffset(index)
+
+  if (offset === -1) {
+    direction.value = -1
+    activeIndex.value = index
+
+    restartAutoplay()
+
+    return
+  }
+
+  if (offset === 1) {
+    direction.value = 1
+    activeIndex.value = index
+
+    restartAutoplay()
+
+    return
+  }
+
+  if (offset === 0) {
+    openProduct(props.heroItems[index])
+  }
+}
+
+const onPointerDown = event => {
+  if (props.heroItems.length <= 1) {
+    return
+  }
+
+  isDragging.value = true
+  isPaused.value = true
+
+  dragStartX.value = event.clientX
+
+  dragCurrentX.value = event.clientX
+
+  event.currentTarget.setPointerCapture?.(event.pointerId)
+}
+
+const onPointerMove = event => {
+  if (!isDragging.value) {
+    return
+  }
+
+  dragCurrentX.value = event.clientX
+}
+
+const finishDrag = () => {
+  if (!isDragging.value) {
+    return
+  }
+
+  const distance = dragCurrentX.value - dragStartX.value
+
+  isDragging.value = false
+
+  dragStartX.value = 0
+  dragCurrentX.value = 0
+
+  if (Math.abs(distance) >= DRAG_THRESHOLD) {
+    if (distance < 0) {
+      direction.value = 1
+      goNext()
+    } else {
+      direction.value = -1
+      goPrevious()
+    }
+  }
+
+  isPaused.value = false
+
+  restartAutoplay()
+}
+
+const onPointerUp = event => {
+  event.currentTarget.releasePointerCapture?.(event.pointerId)
+
+  finishDrag()
+}
+
+const onPointerCancel = () => {
+  finishDrag()
+}
+
+watch(
+  () => props.heroItems,
+  items => {
+    if (!items.length) {
+      activeIndex.value = 0
+      direction.value = 1
+
+      stopAutoplay()
+
+      return
+    }
+
+    activeIndex.value = items.length > 1 ? 1 : 0
+
+    direction.value = 1
+
+    startAutoplay()
+  },
+  {
+    deep: false,
+  },
+)
+
+onMounted(() => {
+  activeIndex.value = props.heroItems.length > 1 ? 1 : 0
+
+  direction.value = 1
+
+  startAutoplay()
+})
+
+onBeforeUnmount(() => {
+  stopAutoplay()
+})
 </script>
 
 <template>
   <section class="hero">
     <div class="hero__bg-top"></div>
+
     <div class="hero__bg-right"></div>
+
     <div class="hero__inner _cnt">
       <div class="hero__top top">
         <div class="top__label">
@@ -130,8 +441,13 @@ const openProduct = item => {
         </div>
 
         <div class="top__title _h1">
-          <div>{{ $t('Trade CS2 skins in') }}</div>
-          <div>{{ $t('the open') }}</div>
+          <div>
+            {{ $t('Trade CS2 skins in') }}
+          </div>
+
+          <div>
+            {{ $t('the open') }}
+          </div>
         </div>
 
         <div class="top__text">
@@ -174,40 +490,56 @@ const openProduct = item => {
               class="body__item"
               @click="openPopular(item)"
             >
-              {{ $t(item.label) }}
+              {{ item.label }}
             </button>
           </div>
         </div>
 
-        <div class="body__products">
-          <button
-            v-for="(item, index) in heroItems"
-            :key="item.id"
-            type="button"
-            class="body__product"
-            :class="[
-              `body__product_${item.heroType}`,
-              {
-                body__product_main: index === 1,
-              },
-            ]"
-            @click="openProduct(item)"
-          >
-            <div class="body__product-image">
-              <img
-                class="body__product-shadow"
-                :src="getImageUrl(item)"
-                alt=""
-                aria-hidden="true"
-              />
+        <div
+          v-if="heroItems.length"
+          class="body__products"
+          :class="{
+            body__products_dragging: isDragging,
+          }"
+          @mouseenter="pauseCarousel"
+          @mouseleave="resumeCarousel"
+          @pointerdown="onPointerDown"
+          @pointermove="onPointerMove"
+          @pointerup="onPointerUp"
+          @pointercancel="onPointerCancel"
+        >
+          <div class="body__products-track">
+            <button
+              v-for="(item, index) in heroItems"
+              :key="item.id"
+              type="button"
+              class="body__product"
+              :class="{
+                body__product_active: index === activeIndex,
 
-              <img
-                class="body__product-img"
-                :src="getImageUrl(item)"
-                :alt="item.title"
-              />
-            </div>
-          </button>
+                body__product_side: Math.abs(getOffset(index)) === 1,
+              }"
+              :style="getProductStyle(index)"
+              @click="selectSlide(index)"
+            >
+              <div class="body__product-image">
+                <img
+                  class="body__product-shadow"
+                  :src="getImageUrl(item)"
+                  alt=""
+                  aria-hidden="true"
+                  draggable="false"
+                />
+
+                <img
+                  class="body__product-img"
+                  :src="getImageUrl(item)"
+                  :alt="item.title"
+                  draggable="false"
+                />
+              </div>
+            </button>
+          </div>
         </div>
 
         <div class="body__stats">
@@ -216,7 +548,9 @@ const openProduct = item => {
               {{ formatNumber(totalItems) }}
             </strong>
 
-            <span>{{ $t('items live') }}</span>
+            <span>
+              {{ $t('items live') }}
+            </span>
           </div>
 
           <div class="body__stat">
@@ -224,13 +558,17 @@ const openProduct = item => {
               {{ categoryCount }}
             </strong>
 
-            <span>{{ $t('categories') }}</span>
+            <span>
+              {{ $t('categories') }}
+            </span>
           </div>
 
           <div class="body__stat">
-            <strong>100%</strong>
+            <strong> 100% </strong>
 
-            <span>{{ $t('checked by hand') }}</span>
+            <span>
+              {{ $t('checked by hand') }}
+            </span>
           </div>
         </div>
       </div>
@@ -246,41 +584,62 @@ const openProduct = item => {
 
 .hero {
   @include header-indent;
+
   position: relative;
+
   max-width: 1440px;
-  overflow: hidden;
+
+  overflow: visible;
+
   margin: 0 auto;
+
   @include adaptiveValue('padding-bottom', 60, 25);
+
   @include adaptiveValue('padding-top', 60, 25);
+
   &__bg-top {
     position: absolute;
+
     top: -260px;
     left: 50%;
+
     width: 1100px;
     height: 640px;
+
     margin-left: -550px;
+
     border-radius: 50%;
+
     background: radial-gradient(
       closest-side,
       var(--chrome-white),
       transparent 72%
     );
+
     opacity: 0.75;
+
     pointer-events: none;
   }
+
   &__bg-right {
     position: absolute;
+
     top: 340px;
     right: -200px;
+
     width: 560px;
     height: 560px;
+
     border-radius: 50%;
+
     background: radial-gradient(
       closest-side,
       var(--other-color-1),
       transparent 70%
     );
+
     opacity: 0.8;
+
     pointer-events: none;
   }
 
@@ -294,32 +653,42 @@ const openProduct = item => {
       margin-bottom: 16px;
     }
   }
-
-  &__body {
-  }
 }
 
 .top {
   text-align: center;
+
   &__label {
     position: relative;
+
     width: fit-content;
+
     margin-left: auto;
     margin-right: auto;
+
     padding-left: 17px;
+
     @include ibm-12-700;
+
     &:not(:last-child) {
       margin-bottom: 17px;
     }
+
     &::before {
       content: '';
+
       position: absolute;
+
       top: 50%;
-      transform: translate(0px, -50%);
       left: 0;
+
       width: 6px;
       height: 6px;
+
+      transform: translate(0, -50%);
+
       border-radius: 50%;
+
       background-color: var(--limed-ash);
     }
   }
@@ -332,6 +701,7 @@ const openProduct = item => {
 
   &__text {
     max-width: 550px;
+
     margin: 0 auto;
   }
 }
@@ -339,27 +709,35 @@ const openProduct = item => {
 .body {
   &__search {
     max-width: 640px;
+
     margin-left: auto;
     margin-right: auto;
+
     &:not(:last-child) {
       margin-bottom: 16px;
     }
+
     :deep(.base-input) {
       @include adaptiveValue('min-height', 58, 50);
     }
+
     :deep(.base-input__suffix) {
       @include adaptiveValue('right', 11, 3);
     }
+
     :deep(.base-input__control) {
       padding-right: 110px;
     }
+
     :deep(.base-input__placeholder) {
       max-width: calc(100% - 150px);
     }
+
     &-icon {
-      color: var(--zorba);
       min-width: 16px;
       height: 16px;
+
+      color: var(--zorba);
     }
 
     &-button {
@@ -371,6 +749,7 @@ const openProduct = item => {
   &__categories {
     display: flex;
     justify-content: center;
+
     &:not(:last-child) {
       @include adaptiveValue('margin-bottom', 28, 18);
     }
@@ -378,7 +757,9 @@ const openProduct = item => {
 
   &__label {
     @include ibm-13-700;
+
     font-weight: 400;
+
     color: var(--makara);
   }
 
@@ -388,13 +769,20 @@ const openProduct = item => {
   }
 
   &__item {
-    padding: 0px 6px;
     width: fit-content;
+
+    padding: 0 6px;
+
     background-color: transparent;
+
     @include ibm-13-700;
+
     font-weight: 600;
+
     color: var(--cod-gray);
-    transition: color 0.3s ease 0s;
+
+    transition: color 0.3s ease;
+
     @media (any-hover: hover) {
       &:hover {
         color: var(--rope);
@@ -403,49 +791,71 @@ const openProduct = item => {
   }
 
   &__products {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    position: relative;
 
-    @include adaptiveValue('gap', 32, 10);
+    width: 100%;
+    max-width: 1000px;
+
+    margin-left: auto;
+    margin-right: auto;
+
+    overflow: visible;
+
+    cursor: grab;
+
+    touch-action: pan-y;
+
+    user-select: none;
+
     &:not(:last-child) {
       @include adaptiveValue('margin-bottom', 30, 18);
+    }
+
+    &_dragging {
+      cursor: grabbing;
+    }
+
+    &-track {
+      position: relative;
+
+      width: 100%;
+
+      height: clamp(220px, 26vw, 360px);
+
+      overflow: visible;
     }
   }
 
   &__product {
-    position: relative;
+    position: absolute;
 
-    max-width: 250px;
-    width: 100%;
-    aspect-ratio: 1;
+    top: 0;
+    left: 50%;
+
+    width: clamp(220px, 26vw, 360px);
+
+    height: clamp(220px, 26vw, 360px);
+
+    padding: clamp(15px, 2.1vw, 30px);
 
     overflow: hidden;
 
+    border: 0;
+
+    border-radius: clamp(20px, 2vw, 28px);
+
     background: #d8b978;
 
-    @include adaptiveValue('border-radius', 28, 20);
-    @include adaptiveValue('padding-top', 40, 15);
-    @include adaptiveValue('padding-left', 30, 15);
-    @include adaptiveValue('padding-right', 30, 15);
-    @include adaptiveValue('padding-bottom', 40, 15);
-    transition: opacity 0.3s ease 0s;
-    @media (any-hover: hover) {
-      opacity: 0.65;
-      &:hover {
-        opacity: 1;
-      }
-    }
+    transform-origin: center;
 
-    &_main {
-      max-width: 360px;
-      opacity: 1;
+    will-change: transform, opacity;
+
+    &_active {
       background: #e8b978;
-      @media (any-hover: hover) {
-        &:hover {
-          opacity: 0.65;
-        }
-      }
+
+      box-shadow: 0 12px 32px var(--cod-gray-16);
+
+      cursor: pointer;
 
       .body__product-image {
         max-width: 234px;
@@ -456,14 +866,29 @@ const openProduct = item => {
       }
     }
 
+    &_side {
+      cursor: pointer;
+
+      box-shadow: 0 1px 2px var(--cod-gray-16);
+
+      @media (any-hover: hover) {
+        &:hover {
+          opacity: 0.82 !important;
+        }
+      }
+    }
+
     &-image {
       position: relative;
 
       width: 100%;
       max-width: 188px;
+
       aspect-ratio: 1;
 
       margin: 0 auto;
+
+      transition: max-width 900ms cubic-bezier(0.45, 0.05, 0.25, 1);
     }
 
     &-img {
@@ -476,6 +901,8 @@ const openProduct = item => {
       height: 100%;
 
       object-fit: contain;
+
+      pointer-events: none;
     }
 
     &-shadow {
@@ -491,6 +918,7 @@ const openProduct = item => {
       object-fit: contain;
 
       transform: scaleY(0.18);
+
       transform-origin: bottom center;
 
       filter: brightness(0) blur(10px);
@@ -498,6 +926,8 @@ const openProduct = item => {
       opacity: 0.35;
 
       pointer-events: none;
+
+      transition: bottom 900ms cubic-bezier(0.45, 0.05, 0.25, 1);
     }
   }
 
@@ -505,30 +935,43 @@ const openProduct = item => {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
+
     @include adaptiveValue('gap', 12, 10);
   }
 
   &__stat {
-    border-radius: 999px;
     display: flex;
     align-items: center;
+
     gap: 10px;
+
+    border-radius: 999px;
+
     background-color: var(--double-spanish-white);
+
     @include adaptiveValue('padding-top', 10.5, 8);
+
     @include adaptiveValue('padding-bottom', 10.5, 8);
+
     @include adaptiveValue('padding-left', 22, 10);
+
     @include adaptiveValue('padding-right', 22, 10);
+
     @media (max-width: $md3) {
       border-radius: 20px;
     }
 
     strong {
       @include sg-20-700;
+
       color: var(--kelp);
     }
+
     span {
       @include ibm-13-700;
+
       font-weight: 400;
+
       color: var(--soya-bean);
     }
   }
