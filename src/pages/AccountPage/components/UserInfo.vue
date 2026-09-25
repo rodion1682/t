@@ -64,7 +64,6 @@
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 
 import PriceFormatter from '@/components/PriceFormatter.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -86,9 +85,13 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['password-change', 'withdraw', 'delete-account'])
+const emit = defineEmits([
+  'top-up',
+  'password-change',
+  'withdraw',
+  'delete-account',
+])
 
-const router = useRouter()
 const { t } = useI18n()
 
 const userStore = useUserStore()
@@ -109,9 +112,7 @@ const canWithdraw = computed(() => {
 })
 
 const handleTopUp = () => {
-  router.push({
-    name: 'account-balance',
-  })
+  emit('top-up')
 }
 
 const handleWithdraw = () => {
@@ -141,7 +142,6 @@ const handleDeleteAccount = () => {
   width: 100%;
 
   @include adaptiveValue('padding', 30, 15);
-
   @include adaptiveValue('border-radius', 39, 20);
 
   background: var(--double-spanish-white);
@@ -156,7 +156,9 @@ const handleDeleteAccount = () => {
     display: flex;
     align-items: center;
     justify-content: center;
+
     width: fit-content;
+
     @include adaptiveValue('min-width', 60, 45);
     @include adaptiveValue('height', 60, 45);
 
@@ -184,15 +186,13 @@ const handleDeleteAccount = () => {
 
     width: 100%;
 
-    margin-bottom: 7px;
-
     @include ibm-16-700;
 
     color: var(--cod-gray);
-    letter-spacing: 0px;
 
     white-space: nowrap;
     text-overflow: ellipsis;
+
     &:not(:last-child) {
       @include adaptiveValue('margin-bottom', 5, 3);
     }
@@ -246,17 +246,12 @@ const handleDeleteAccount = () => {
 
   &__button {
     width: 100%;
+
     @include adaptiveValue('min-height', 50, 40);
 
     border-radius: 999px;
 
-    &_top-up {
-      text-transform: uppercase;
-    }
-
-    &_withdraw {
-      text-transform: uppercase;
-    }
+    text-transform: uppercase;
   }
 
   &__footer {
@@ -293,21 +288,6 @@ const handleDeleteAccount = () => {
     &:focus-visible {
       outline: 1px solid var(--copper);
       outline-offset: 4px;
-    }
-
-    &:disabled {
-      opacity: 0.5;
-
-      pointer-events: none;
-    }
-  }
-}
-
-@media (max-width: $md2) {
-  .info {
-    &__balance {
-      margin-top: 26px;
-      margin-bottom: 24px;
     }
   }
 }

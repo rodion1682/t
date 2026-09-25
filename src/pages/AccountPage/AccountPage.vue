@@ -51,6 +51,7 @@
           class="profile__info"
           :active-section="activeSection"
           :offers-enabled="isOfferEnabled"
+          @top-up="openTopUpModal"
           @password-change="openPasswordModal"
           @withdraw="openWithdrawModal"
           @delete-account="openDeleteModal"
@@ -67,6 +68,8 @@
         </div>
       </div>
     </div>
+
+    <TopUpModal v-model:show="isTopUpModalOpen" @close="closeTopUpModal" />
 
     <PasswordChangeModal
       v-model:show="isPasswordModalOpen"
@@ -96,7 +99,6 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -108,9 +110,11 @@ import { useModalStore } from '@/stores/modal'
 import { useSettingsStore } from '@/stores/settings'
 
 import UserInfo from './components/UserInfo.vue'
+
 import DeleteAccountModal from './modals/DeleteAccountModal.vue'
 import PasswordChangeModal from './modals/PasswordChangeModal.vue'
 
+import TopUpModal from '@/components/modals/TopUpModal.vue'
 import MyOffers from './tabs/MyOffers.vue'
 import OrderHistory from './tabs/OrderHistory.vue'
 import PaymentHistory from './tabs/PaymentHistory.vue'
@@ -122,15 +126,13 @@ const route = useRoute()
 const router = useRouter()
 
 const settingsStore = useSettingsStore()
-
 const modalStore = useModalStore()
 
 const activeSection = ref('profile')
 
+const isTopUpModalOpen = ref(false)
 const isPasswordModalOpen = ref(false)
-
 const isWithdrawModalOpen = ref(false)
-
 const isDeleteModalOpen = ref(false)
 
 const isOfferEnabled = computed(() => {
@@ -155,19 +157,15 @@ const pageTitle = computed(() => {
 
 const sectionRoutes = {
   profile: 'account-profile',
-
   'payment-history': 'account-payment-history',
-
   'order-history': 'account-order-history',
-
   offers: 'account-offers',
 }
 
 const closeAccountModals = () => {
+  isTopUpModalOpen.value = false
   isPasswordModalOpen.value = false
-
   isWithdrawModalOpen.value = false
-
   isDeleteModalOpen.value = false
 }
 
@@ -178,11 +176,7 @@ const toggleSection = section => {
 
   const routeName = sectionRoutes[section]
 
-  if (!routeName) {
-    return
-  }
-
-  if (route.name === routeName) {
+  if (!routeName || route.name === routeName) {
     return
   }
 
@@ -194,13 +188,11 @@ const toggleSection = section => {
 const syncActiveSection = path => {
   if (path.includes('/payment-history')) {
     activeSection.value = 'payment-history'
-
     return
   }
 
   if (path.includes('/order-history')) {
     activeSection.value = 'order-history'
-
     return
   }
 
@@ -219,9 +211,17 @@ const syncActiveSection = path => {
   activeSection.value = 'profile'
 }
 
+const openTopUpModal = () => {
+  closeAccountModals()
+  isTopUpModalOpen.value = true
+}
+
+const closeTopUpModal = () => {
+  isTopUpModalOpen.value = false
+}
+
 const openPasswordModal = () => {
   closeAccountModals()
-
   isPasswordModalOpen.value = true
 }
 
@@ -235,7 +235,6 @@ const openWithdrawModal = () => {
   }
 
   closeAccountModals()
-
   isWithdrawModalOpen.value = true
 }
 
@@ -245,7 +244,6 @@ const closeWithdrawModal = () => {
 
 const openDeleteModal = () => {
   closeAccountModals()
-
   isDeleteModalOpen.value = true
 }
 

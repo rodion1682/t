@@ -39,7 +39,7 @@ const purchaseStore = usePurchaseStore()
 
 const { purchaseHistory, isHistoryLoading } = storeToRefs(purchaseStore)
 
-const SHOW_ORDER_IMAGES = false
+const SHOW_ORDER_IMAGES = true
 
 const ITEMS_PER_PAGE = 6
 

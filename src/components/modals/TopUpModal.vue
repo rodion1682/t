@@ -5,75 +5,76 @@
     @close="handleClose"
   >
     <div class="top-up">
-      <div class="top-up__title _h3">
-        {{ $t('Top up balance') }}
+      <div class="top-up__head">
+        <h2 class="top-up__title">
+          {{ $t('Top Up Balance') }}
+        </h2>
       </div>
 
-      <div class="top-up__inputs">
-        <div class="top-up__box">
+      <div class="top-up__amount">
+        <BaseInput
+          v-model="amountInput"
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
+          :label="$t('Amount')"
+          :placeholder="`0.00 ${currencyCode}`"
+          :error="amountError"
+          :disabled="isSubmitting"
+          @input="handleAmountInput"
+          @blur="validateAmount"
+        />
+
+        <div v-if="minTopUpAmount > 0" class="top-up__minimum">
+          {{ $t('Minimum top up') }}: {{ formatAmount(minTopUpAmount) }}
+          {{ currencySymbol }}
+        </div>
+      </div>
+
+      <div class="top-up__divider"></div>
+
+      <div class="top-up__details">
+        <div class="top-up__details-title">
+          {{ $t('Billing information') }}
+        </div>
+
+        <div class="top-up__grid">
           <BaseInput
-            v-if="IS_COMBINED_NAME_AND_SURNAME"
-            v-model="form.fullName"
-            :label="$t('Full name')"
-            :error="errors.fullName"
-            class="top-up__input"
-            name="fullName"
-            autocomplete="name"
+            v-model="form.name"
+            :label="$t('Name')"
+            :error="errors.name"
             :disabled="isSubmitting"
-            @blur="validateField('fullName')"
+            @blur="validateField('name')"
           />
 
-          <template v-else>
-            <BaseInput
-              v-model="form.name"
-              :label="$t('Name')"
-              :error="errors.name"
-              class="top-up__input"
-              name="name"
-              autocomplete="given-name"
-              :disabled="isSubmitting"
-              @blur="validateField('name')"
-            />
-
-            <BaseInput
-              v-model="form.surname"
-              :label="$t('Surname')"
-              :error="errors.surname"
-              class="top-up__input"
-              name="surname"
-              autocomplete="family-name"
-              :disabled="isSubmitting"
-              @blur="validateField('surname')"
-            />
-          </template>
+          <BaseInput
+            v-model="form.surname"
+            :label="$t('Surname')"
+            :error="errors.surname"
+            :disabled="isSubmitting"
+            @blur="validateField('surname')"
+          />
 
           <BaseInput
             v-model="form.email"
-            :label="$t('E-mail')"
             type="email"
-            name="email"
             autocomplete="email"
+            :label="$t('E-mail')"
             :error="errors.email"
-            class="top-up__input"
             :disabled="isSubmitting"
             @blur="validateField('email')"
           />
 
           <BaseInput
             v-model="form.phone"
-            :label="$t('Phone')"
             type="tel"
-            name="phone"
-            inputmode="tel"
             autocomplete="tel"
+            :label="$t('Phone')"
             :error="errors.phone"
-            class="top-up__input"
             :disabled="isSubmitting"
             @blur="validateField('phone')"
           />
-        </div>
 
-        <div class="top-up__box">
           <BaseSelect
             v-model="form.country"
             :options="countryOptions"
@@ -82,108 +83,79 @@
             :label="$t('Country')"
             :error="errors.country"
             :disabled="isSubmitting"
-            class="top-up__input"
-          />
-
-          <BaseInput
-            v-model="form.city"
-            :label="$t('City')"
-            :error="errors.city"
-            class="top-up__input"
-            :disabled="isSubmitting"
-            @blur="validateField('city')"
+            @blur="validateField('country')"
           />
 
           <BaseInput
             v-model="form.address"
             :label="$t('Address')"
             :error="errors.address"
-            class="top-up__input"
             :disabled="isSubmitting"
             @blur="validateField('address')"
           />
 
           <BaseInput
+            v-model="form.city"
+            :label="$t('City')"
+            :error="errors.city"
+            :disabled="isSubmitting"
+            @blur="validateField('city')"
+          />
+
+          <BaseInput
             v-model="form.postCode"
-            :label="$t('Postcode')"
+            :label="$t('ZIP-code')"
             :error="errors.postCode"
-            class="top-up__input"
             :disabled="isSubmitting"
             @blur="validateField('postCode')"
           />
         </div>
       </div>
-      <div class="top-up__info">
-        <BaseCheckbox
-          v-model="form.termsAccepted"
-          :error="errors.termsAccepted"
+
+      <BaseCheckbox
+        class="top-up__terms"
+        v-model="form.termsAccepted"
+        :error="errors.termsAccepted"
+        :disabled="isSubmitting"
+        terms
+      >
+      </BaseCheckbox>
+
+      <div v-if="submitError || topupStore.error" class="top-up__error">
+        {{ submitError || topupStore.error }}
+      </div>
+
+      <div class="top-up__summary">
+        <div class="top-up__summary-label">
+          {{ $t('Total to pay') }}
+        </div>
+
+        <div class="top-up__summary-value">
+          {{ formatAmount(fiatAmount) }} {{ currencySymbol }}
+        </div>
+      </div>
+
+      <div class="top-up__actions">
+        <BaseButton
+          type="button"
+          variant="white"
+          class="top-up__cancel"
           :disabled="isSubmitting"
-          class="top-up__checkbox"
-          terms
-        />
-        <div
-          v-if="formattedRequisites"
-          class="top-up__requisites"
-          v-html="formattedRequisites"
-        />
-      </div>
-
-      <div v-if="submitError" class="top-up__error _text-error">
-        {{ submitError }}
-      </div>
-
-      <div v-if="topupStore.error" class="top-up__error _text-error">
-        {{ topupStore.error }}
-      </div>
-
-      <div class="top-up__total">
-        <div class="top-up__total-label">{{ $t('Total to pay:') }}</div>
-        <div class="top-up__prices">
-          <PriceFormatter
-            :price="receiveCredits"
-            skip-conversion
-            reverse
-            class="top-up__coin"
-          />
-          <PriceFormatter
-            is-currency
-            raw-fiat
-            reverse
-            skip-conversion
-            :price="localFiatAmount"
-            :currency-code="currencyCode"
-            class="top-up__fiat"
-          />
-        </div>
-      </div>
-
-      <div class="top-up__methods">
-        <div
-          v-for="(method, index) in paymentMethods"
-          :key="method.code"
-          class="top-up__method"
-          :class="{
-            'top-up__method_full': index === 0,
-            'top-up__method_image': Boolean(method.image),
-          }"
+          @click="handleClose"
         >
-          <BaseButton
-            type="button"
-            :variant="index === 0 ? 'white-bordered' : 'white'"
-            class="top-up__submit"
-            :loading="isSubmitting && selectedPaymentMethod === method.code"
-            :disabled="isSubmitting || !canSubmit"
-            @click="submitWithMethod(method.code)"
-          >
-            <span v-if="method.image" class="top-up__submit-image _ibg-contain">
-              <img :src="method.image" :alt="method.title" />
-            </span>
+          {{ $t('Cancel') }}
+        </BaseButton>
 
-            <span v-else>
-              {{ method.title }}
-            </span>
-          </BaseButton>
-        </div>
+        <BaseButton
+          type="button"
+          variant="primary"
+          class="top-up__submit"
+          :loading="isSubmitting"
+          :disabled="!canSubmit"
+          @click="handleSubmit"
+        >
+          {{ $t('Pay with Card') }}
+        </BaseButton>
       </div>
     </div>
   </BaseModal>
@@ -193,52 +165,40 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import PriceFormatter from '@/components/PriceFormatter.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseCheckbox from '@/components/base/BaseCheckbox.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import BaseModal from '@/components/base/BaseModal.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 
-import { useStaticPages } from '@/composables/useStaticPages'
 import { useCountriesStore } from '@/stores/countries'
 import { useCurrencyStore } from '@/stores/currency'
 import { useSettingsStore } from '@/stores/settings'
 import { useTopUpStore } from '@/stores/topup'
 import { useUserStore } from '@/stores/user'
 
-const IS_COMBINED_NAME_AND_SURNAME = false
-
-const CHECKOUT_STORAGE_KEY = 'checkout_prefill_data'
-
 const props = defineProps({
   show: {
     type: Boolean,
     required: true,
   },
-
-  selectedAmount: {
-    type: [String, Number],
-    default: '',
-  },
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['update:show', 'close'])
 
 const { t } = useI18n()
-const { ensurePages } = useStaticPages()
 
 const topupStore = useTopUpStore()
 const settingsStore = useSettingsStore()
 const currencyStore = useCurrencyStore()
-const userStore = useUserStore()
 const countriesStore = useCountriesStore()
+const userStore = useUserStore()
 
+const amountInput = ref('')
+const amountError = ref('')
 const submitError = ref('')
-const selectedPaymentMethod = ref(null)
 
 const form = reactive({
-  fullName: '',
   name: '',
   surname: '',
   email: '',
@@ -251,7 +211,6 @@ const form = reactive({
 })
 
 const errors = reactive({
-  fullName: '',
   name: '',
   surname: '',
   email: '',
@@ -263,21 +222,13 @@ const errors = reactive({
   termsAccepted: '',
 })
 
-const norm = value => String(value ?? '').trim()
-
 const emailRe = /^\S+@\S+\.\S+$/
 const nameRe = /^[\p{L}][\p{L}\p{M}' -]*$/u
 
-const savedFields = ['country', 'city', 'address', 'postCode']
+const norm = value => String(value ?? '').trim()
 
 const isSubmitting = computed(() => {
   return topupStore.isLoading
-})
-
-const formattedRequisites = computed(() => {
-  return settingsStore.requisites
-    ? settingsStore.requisites.replace(/\n/g, '<br>')
-    : ''
 })
 
 const currency = computed(() => {
@@ -288,203 +239,54 @@ const currencyCode = computed(() => {
   return currency.value?.code || currencyStore.currentCurrencyCode || 'EUR'
 })
 
-const localFiatAmount = computed(() => {
-  const value = Number(props.selectedAmount || 0)
+const currencySymbol = computed(() => {
+  return currency.value?.symbol || currencyStore.currentCurrencySymbol || '€'
+})
+
+const fiatAmount = computed(() => {
+  const value = Number(
+    String(amountInput.value || '')
+      .replace(',', '.')
+      .replace(/[^\d.]/g, ''),
+  )
 
   return Number.isFinite(value) ? value : 0
 })
 
-const receiveCredits = computed(() => {
-  const amount = localFiatAmount.value
-  const currencyValue = Number(currency.value?.value || 1)
-
-  if (!Number.isFinite(currencyValue) || currencyValue <= 0) {
-    return 0
-  }
-
-  return Number((amount / currencyValue).toFixed(2))
+const minTopUpAmount = computed(() => {
+  return Number(
+    settingsStore.minTopUpAmount ||
+      settingsStore.settings?.min_top_up_amount ||
+      0,
+  )
 })
 
 const countryOptions = computed(() => {
   return countriesStore.countries || []
 })
 
-const splitFullName = fullName => {
-  const parts = norm(fullName).split(/\s+/).filter(Boolean)
-
-  return {
-    name: parts[0] || '',
-    surname: parts.slice(1).join(' ') || '',
-  }
-}
-
-const getNameData = () => {
-  if (IS_COMBINED_NAME_AND_SURNAME) {
-    return splitFullName(form.fullName)
-  }
-
-  return {
-    name: norm(form.name),
-    surname: norm(form.surname),
-  }
-}
-
-const getCheckoutStorageData = () => {
-  try {
-    return JSON.parse(localStorage.getItem(CHECKOUT_STORAGE_KEY)) || {}
-  } catch {
-    return {}
-  }
-}
-
-const saveCheckoutStorageData = () => {
-  const data = getCheckoutStorageData()
-
-  savedFields.forEach(field => {
-    data[field] = form[field]
-  })
-
-  localStorage.setItem(CHECKOUT_STORAGE_KEY, JSON.stringify(data))
-}
-
-const getProfileValue = (user, field) => {
-  if (!user) return ''
-
-  const map = {
-    country: user.country?.id || user.country_id || user.country,
-
-    city: user.city,
-    address: user.address,
-
-    postCode: user.zip || user.post_code || user.postCode,
-  }
-
-  return map[field] ?? ''
-}
-
-const getUserOrSavedValue = (user, field) => {
-  const profileValue = getProfileValue(user, field)
-
-  if (norm(profileValue)) {
-    return profileValue
-  }
-
-  const savedData = getCheckoutStorageData()
-
-  return savedData[field] ?? ''
-}
-
-const isPlaceholderValue = (value, key) => {
-  const currentValue = norm(value).toLowerCase()
-  const placeholder = norm(t(key)).toLowerCase()
-
-  return Boolean(currentValue && currentValue === placeholder)
-}
-
-const isLegacyPlaceholder = (value, type) => {
-  const currentValue = norm(value).toLowerCase()
-
-  if (type === 'name') {
-    return currentValue === 'name'
-  }
-
-  if (type === 'surname') {
-    return currentValue === 'surname'
-  }
-
-  return false
-}
-
-const sanitizeName = value => {
-  if (isPlaceholderValue(value, 'Name') || isLegacyPlaceholder(value, 'name')) {
+const formattedRequisites = computed(() => {
+  if (!settingsStore.requisites) {
     return ''
   }
 
-  return norm(value)
-}
-
-const sanitizeSurname = value => {
-  if (
-    isPlaceholderValue(value, 'Surname') ||
-    isLegacyPlaceholder(value, 'surname')
-  ) {
-    return ''
-  }
-
-  return norm(value)
-}
-
-const normCode = code => {
-  return String(code || '')
-    .toLowerCase()
-    .trim()
-}
-
-const isApplePay = code => {
-  return ['apple_pay', 'apple-pay', 'applepay'].includes(normCode(code))
-}
-
-const isGooglePay = code => {
-  return ['google_pay', 'google-pay', 'googlepay'].includes(normCode(code))
-}
-
-const isCard = code => {
-  return normCode(code) === 'creditdebit-card'
-}
-
-const paymentMethods = computed(() => {
-  const methods =
-    settingsStore.paymentMethods ||
-    settingsStore.settings?.payment_methods ||
-    []
-
-  const currentCurrency = currencyCode.value
-
-  const filtered = methods.filter(method => {
-    if (!method.currencies?.length) {
-      return true
-    }
-
-    return method.currencies.includes(currentCurrency)
-  })
-
-  const card = filtered.filter(method => {
-    return isCard(method.code)
-  })
-
-  const apple = filtered.filter(method => {
-    return isApplePay(method.code)
-  })
-
-  const google = filtered.filter(method => {
-    return isGooglePay(method.code)
-  })
-
-  const rest = filtered.filter(method => {
-    return ![
-      'balance',
-      'creditdebit-card',
-      'google-pay',
-      'google_pay',
-      'googlepay',
-      'apple-pay',
-      'apple_pay',
-      'applepay',
-    ].includes(normCode(method.code))
-  })
-
-  return [...card, ...apple, ...google, ...rest]
+  return settingsStore.requisites.replace(/\n/g, '<br>')
 })
 
-const isValidPhone = phone => {
-  const normalizedPhone = norm(phone)
-  const digits = normalizedPhone.replace(/\D/g, '')
+const isValidPhone = value => {
+  const phone = norm(value)
+
+  if (!phone) {
+    return false
+  }
+
+  const digits = phone.replace(/\D/g, '')
 
   if (digits.length < 7 || digits.length > 15) {
     return false
   }
 
-  return /^[+0-9()\-\s]+$/.test(normalizedPhone)
+  return /^[+0-9()\-\s]+$/.test(phone)
 }
 
 const clearErrors = () => {
@@ -492,37 +294,43 @@ const clearErrors = () => {
     errors[key] = ''
   })
 
+  amountError.value = ''
   submitError.value = ''
+
+  topupStore.clearError?.()
+}
+
+const validateAmount = () => {
+  amountError.value = ''
+
+  if (!fiatAmount.value || fiatAmount.value <= 0) {
+    amountError.value = t('Please enter a valid amount')
+
+    return false
+  }
+
+  if (minTopUpAmount.value > 0 && fiatAmount.value < minTopUpAmount.value) {
+    amountError.value = `${t('Minimum top up')} ${formatAmount(
+      minTopUpAmount.value,
+    )} ${currencySymbol.value}`
+
+    return false
+  }
+
+  return true
 }
 
 const validateField = field => {
   errors[field] = ''
 
-  if (field === 'fullName') {
-    const { name, surname } = splitFullName(form.fullName)
-
-    if (!name || !surname) {
-      errors.fullName = t('Please enter your full name')
-
-      return
-    }
-
-    if (!nameRe.test(name) || !nameRe.test(surname)) {
-      errors.fullName = t('Invalid full name')
-    }
-
-    return
-  }
-
   if (field === 'name') {
-    const name = norm(form.name)
-
-    if (!name) {
+    if (!norm(form.name)) {
       errors.name = t('First name is required')
+
       return
     }
 
-    if (!nameRe.test(name)) {
+    if (!nameRe.test(norm(form.name))) {
       errors.name = t('Invalid name')
     }
 
@@ -530,14 +338,13 @@ const validateField = field => {
   }
 
   if (field === 'surname') {
-    const surname = norm(form.surname)
-
-    if (!surname) {
+    if (!norm(form.surname)) {
       errors.surname = t('Last name is required')
+
       return
     }
 
-    if (!nameRe.test(surname)) {
+    if (!nameRe.test(norm(form.surname))) {
       errors.surname = t('Invalid surname')
     }
 
@@ -545,14 +352,13 @@ const validateField = field => {
   }
 
   if (field === 'email') {
-    const email = norm(form.email)
-
-    if (!email) {
+    if (!norm(form.email)) {
       errors.email = t('Email is required')
+
       return
     }
 
-    if (!emailRe.test(email)) {
+    if (!emailRe.test(norm(form.email))) {
       errors.email = t('Invalid email format')
     }
 
@@ -560,12 +366,6 @@ const validateField = field => {
   }
 
   if (field === 'phone') {
-    if (!norm(form.phone)) {
-      errors.phone = t('Phone number is required')
-
-      return
-    }
-
     if (!isValidPhone(form.phone)) {
       errors.phone = t('Invalid phone number')
     }
@@ -575,18 +375,26 @@ const validateField = field => {
 
   if (field === 'country' && !form.country) {
     errors.country = t('Country is required')
+
+    return
   }
 
   if (field === 'city' && !norm(form.city)) {
     errors.city = t('City is required')
+
+    return
   }
 
   if (field === 'address' && !norm(form.address)) {
     errors.address = t('Address is required')
+
+    return
   }
 
   if (field === 'postCode' && !norm(form.postCode)) {
     errors.postCode = t('Post Code is required')
+
+    return
   }
 
   if (field === 'termsAccepted' && !form.termsAccepted) {
@@ -597,13 +405,10 @@ const validateField = field => {
 const validateForm = () => {
   clearErrors()
 
-  if (IS_COMBINED_NAME_AND_SURNAME) {
-    validateField('fullName')
-  } else {
-    validateField('name')
-    validateField('surname')
-  }
+  const validAmount = validateAmount()
 
+  validateField('name')
+  validateField('surname')
   validateField('email')
   validateField('phone')
   validateField('country')
@@ -612,39 +417,16 @@ const validateForm = () => {
   validateField('postCode')
   validateField('termsAccepted')
 
-  if (!localFiatAmount.value || localFiatAmount.value <= 0) {
-    submitError.value = t('Invalid top up amount')
-
-    return false
-  }
-
-  const hasErrors = Object.values(errors).some(Boolean)
-
-  if (hasErrors) {
-    submitError.value = t('Please fill in all required fields correctly.')
-
-    return false
-  }
-
-  return true
+  return Boolean(validAmount && !Object.values(errors).some(Boolean))
 }
-
-const isNameComplete = computed(() => {
-  if (IS_COMBINED_NAME_AND_SURNAME) {
-    const { name, surname } = splitFullName(form.fullName)
-
-    return Boolean(name && surname && nameRe.test(name) && nameRe.test(surname))
-  }
-
-  return Boolean(
-    nameRe.test(norm(form.name)) && nameRe.test(norm(form.surname)),
-  )
-})
 
 const canSubmit = computed(() => {
   return Boolean(
-    localFiatAmount.value > 0 &&
-    isNameComplete.value &&
+    !isSubmitting.value &&
+    fiatAmount.value > 0 &&
+    (!minTopUpAmount.value || fiatAmount.value >= minTopUpAmount.value) &&
+    nameRe.test(norm(form.name)) &&
+    nameRe.test(norm(form.surname)) &&
     emailRe.test(norm(form.email)) &&
     isValidPhone(form.phone) &&
     form.country &&
@@ -655,118 +437,129 @@ const canSubmit = computed(() => {
   )
 })
 
+const formatAmount = value => {
+  return Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+const handleAmountInput = event => {
+  let value = String(event?.target?.value ?? amountInput.value ?? '')
+    .replace(',', '.')
+    .replace(/[^\d.]/g, '')
+
+  const parts = value.split('.')
+
+  if (parts.length > 2) {
+    value = `${parts.shift()}.${parts.join('')}`
+  }
+
+  if (value.includes('.')) {
+    const [integer, decimal] = value.split('.')
+
+    value = `${integer}.${String(decimal || '').slice(0, 2)}`
+  }
+
+  amountInput.value = value
+  amountError.value = ''
+}
+
 const prefillForm = () => {
   const user = userStore.user || {}
-  const savedData = getCheckoutStorageData()
 
-  const name = sanitizeName(user.name || savedData.name || '')
+  form.name = user.name || ''
+  form.surname = user.surname || ''
+  form.email = user.email || ''
+  form.phone = user.phone || ''
 
-  const surname = sanitizeSurname(user.surname || savedData.surname || '')
+  form.country = user.country?.id || user.country_id || user.country || ''
 
-  form.name = name
-  form.surname = surname
+  form.city = user.city || ''
+  form.address = user.address || ''
 
-  form.fullName = [name, surname].filter(Boolean).join(' ')
-
-  form.email = user.email || savedData.email || ''
-
-  form.phone = user.phone || savedData.phone || ''
-
-  form.country = getUserOrSavedValue(user, 'country')
-
-  form.city = getUserOrSavedValue(user, 'city')
-
-  form.address = getUserOrSavedValue(user, 'address')
-
-  form.postCode = getUserOrSavedValue(user, 'postCode')
+  form.postCode = user.zip || user.post_code || user.postCode || ''
 
   form.termsAccepted = false
+}
 
+const initModal = async () => {
   clearErrors()
-}
 
-const submitWithMethod = async methodCode => {
-  if (isSubmitting.value) return
-  if (!validateForm()) return
-
-  selectedPaymentMethod.value = methodCode
-
-  saveCheckoutStorageData()
-
-  topupStore.clearError?.()
-  topupStore.setAmount?.(receiveCredits.value)
-  topupStore.setPaymentType?.(methodCode)
-
-  const { name, surname } = getNameData()
-
-  try {
-    const response = await topupStore.checkout({
-      name: sanitizeName(name),
-      surname: sanitizeSurname(surname),
-
-      email: norm(form.email),
-      phone: norm(form.phone),
-
-      country: form.country,
-      city: norm(form.city),
-      address: norm(form.address),
-      postCode: norm(form.postCode),
-
-      currency: currencyCode.value,
-      amount: localFiatAmount.value,
-      paymentType: methodCode,
-    })
-
-    if (response?.redirect_url) {
-      window.location.href = response.redirect_url
-
-      return
-    }
-
-    emit('close')
-  } catch (error) {
-    submitError.value =
-      error?.response?.data?.message ||
-      error?.message ||
-      t('Failed to create top up payment')
-  } finally {
-    selectedPaymentMethod.value = null
-  }
-}
-
-const initTopUp = async () => {
   await Promise.all([
-    ensurePages(),
     settingsStore.fetchSettings?.(),
     countriesStore.fetchCountries?.(),
     userStore.fetchProfile?.(),
   ])
 
   prefillForm()
-  selectedPaymentMethod.value = null
+}
+
+const handleSubmit = async () => {
+  if (isSubmitting.value || !validateForm()) {
+    return
+  }
+
+  topupStore.setAmount?.(fiatAmount.value)
+  topupStore.setPaymentType?.('card')
+
+  try {
+    const response = await topupStore.checkout({
+      name: norm(form.name),
+      surname: norm(form.surname),
+      email: norm(form.email),
+      phone: norm(form.phone),
+      country: form.country,
+      city: norm(form.city),
+      address: norm(form.address),
+      postCode: norm(form.postCode),
+      currency: currencyCode.value,
+      amount: fiatAmount.value,
+      paymentType: 'card',
+    })
+
+    const redirectUrl = response?.redirect_url || response?.redirectUrl
+
+    if (redirectUrl) {
+      window.location.href = redirectUrl
+
+      return
+    }
+
+    submitError.value = t('Payment redirect URL was not returned')
+  } catch (error) {
+    submitError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      topupStore.error ||
+      t('Failed to create top up payment')
+  }
 }
 
 const handleClose = () => {
-  if (isSubmitting.value) return
+  if (isSubmitting.value) {
+    return
+  }
 
+  emit('update:show', false)
   emit('close')
 }
 
 watch(
   () => props.show,
-  async isOpen => {
-    if (!isOpen) return
+  async show => {
+    if (!show) {
+      return
+    }
 
-    await initTopUp()
+    await initModal()
   },
 )
 
-watch(() => savedFields.map(field => form[field]), saveCheckoutStorageData)
-
 watch(
   () => form.country,
-  () => {
-    if (form.country) {
+  value => {
+    if (value) {
       errors.country = ''
     }
   },
@@ -774,170 +567,186 @@ watch(
 
 watch(
   () => form.termsAccepted,
-  () => {
-    validateField('termsAccepted')
+  value => {
+    if (value) {
+      errors.termsAccepted = ''
+    }
   },
 )
 
 onMounted(async () => {
   if (props.show) {
-    await initTopUp()
+    await initModal()
   }
 })
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .top-up {
-  &__title {
+  width: 100%;
+  max-width: 650px;
+
+  @include adaptiveValue('padding', 12, 0);
+
+  color: var(--cod-gray);
+
+  &__head {
     text-align: center;
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 18);
-    }
+
+    @include adaptiveValue('margin-bottom', 30, 22);
   }
 
-  &__inputs {
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 20);
-    }
+  &__eyebrow {
+    margin-bottom: 8px;
+
+    @include ibm-12-700;
+
+    color: var(--makara);
+
+    text-transform: uppercase;
   }
 
-  &__box {
+  &__title {
+    margin: 0 0 10px;
+
+    @include sg-36-700;
+
+    color: var(--cod-gray);
+
+    text-transform: uppercase;
+  }
+
+  &__description {
+    max-width: 440px;
+
+    margin: 0 auto;
+
+    @include ibm-14-400;
+
+    color: var(--soya-bean);
+  }
+
+  &__amount {
+    margin-bottom: 0;
+  }
+
+  &__minimum {
+    margin-top: 8px;
+
+    @include ibm-12-400;
+
+    color: var(--makara);
+  }
+
+  &__divider {
+    width: 100%;
+    height: 1px;
+
+    @include adaptiveValue('margin-top', 28, 20);
+    @include adaptiveValue('margin-bottom', 28, 20);
+
+    background: var(--cod-gray-16);
+  }
+
+  &__details-title {
+    margin-bottom: 14px;
+
+    @include ibm-12-700;
+
+    color: var(--hemlock);
+
+    text-transform: uppercase;
+  }
+
+  &__grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    @include adaptiveValue('gap', 20, 18);
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 20, 18);
-    }
-    @media (max-width: $md5) {
-      grid-template-columns: repeat(1, 1fr);
-    }
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 14px;
   }
 
-  &__input {
-  }
-
-  &__info {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    @include adaptiveValue('gap', 20, 10);
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 20);
+  &__terms {
+    @include adaptiveValue('margin-top', 24, 18);
+    :deep(.base-checkbox__box) {
+      border: 1px solid var(--copper);
     }
-    @media (max-width: $md5) {
-      grid-template-columns: repeat(1, 1fr);
-    }
-  }
-
-  &__checkbox {
-  }
-
-  &__requisites {
-    line-height: 170%;
-    color: var(--third-color);
   }
 
   &__error {
-    margin-bottom: 8px;
+    margin-top: 14px;
+
+    padding: 12px 14px;
+
+    border-radius: 12px;
+
+    background: rgb(237 0 6 / 7%);
+
+    @include ibm-12-400;
+
+    color: var(--error-color);
   }
 
-  &__total {
+  &__summary {
     display: flex;
+    align-items: center;
     justify-content: space-between;
+
     gap: 20px;
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 20);
-    }
-    &-label {
-    }
+
+    @include adaptiveValue('margin-top', 28, 20);
+    @include adaptiveValue('padding-top', 24, 18);
+
+    border-top: 1px solid var(--cod-gray-16);
   }
 
-  &__prices {
-    line-height: 120% !important;
+  &__summary-label {
+    @include ibm-14-700;
+
+    color: var(--makara);
   }
 
-  &__coin {
-    color: var(--primary-color);
-    &:not(:last-child) {
-      margin-bottom: 10px;
-    }
+  &__summary-value {
+    @include sg-26-700;
+
+    color: var(--cod-gray);
   }
 
-  &__fiat {
+  &__actions {
+    display: grid;
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+
+    gap: 10px;
+
+    @include adaptiveValue('margin-top', 26, 20);
   }
 
-  &__methods {
-    width: 100%;
-
-    display: flex;
-    flex-wrap: wrap;
-
-    @include adaptiveValue('row-gap', 20, 10);
-    @include adaptiveValue('margin-left', -10, -5);
-    @include adaptiveValue('margin-right', -10, -5);
-  }
-
-  &__method {
-    position: relative;
-
-    flex: 0 1 33.333%;
-
-    width: 100%;
-    height: fit-content;
-
-    @include adaptiveValue('padding-left', 10, 5);
-    @include adaptiveValue('padding-right', 10, 5);
-
-    &_full {
-    }
-    @media (max-width: $md3) {
-      flex: 0 1 50%;
-    }
-    @media (max-width: $md5) {
-      flex: 1 1 100%;
-    }
-
-    &_image {
-      :deep(.top-up__submit) {
-        position: relative;
-        overflow: hidden;
-      }
-
-      :deep(.top-up__submit .btn__text) {
-        position: absolute;
-
-        inset: 0;
-
-        width: 100%;
-        height: 100%;
-      }
-    }
-
-    @media (max-width: $md6) {
-      flex: 1 1 100%;
-    }
-  }
-
+  &__cancel,
   &__submit {
     width: 100%;
 
-    &-image {
-      position: absolute;
+    min-height: 50px;
 
-      inset: 0;
+    border-radius: 999px;
+  }
+}
 
-      width: 100%;
-      height: 100%;
+@media (max-width: $md5) {
+  .top-up {
+    &__grid {
+      grid-template-columns: 1fr;
+    }
 
-      img {
-        width: 100%;
-        height: 100%;
+    &__actions {
+      grid-template-columns: 1fr;
+    }
 
-        object-fit: contain;
-      }
+    &__submit {
+      order: -1;
     }
   }
 }
