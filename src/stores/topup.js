@@ -1,15 +1,19 @@
 import api from '@/plugins/axios'
+
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useTopUpStore = defineStore('topup', () => {
   const amount = ref(null)
   const paymentType = ref(null)
+
   const isLoading = ref(false)
   const error = ref('')
+
   const redirectUrl = ref('')
   const depositId = ref(null)
   const depositStatus = ref(null)
+
   const statusPollingInterval = ref(null)
 
   const checkoutFormData = ref({
@@ -31,31 +35,67 @@ export const useTopUpStore = defineStore('topup', () => {
 
   const setPaymentType = value => {
     paymentType.value = value
+    error.value = ''
   }
 
-  const validateAmount = async () => {
-    try {
-      isLoading.value = true
-
-      if (!amount.value || isNaN(amount.value) || amount.value <= 0) {
-        error.value = 'Please enter a valid amount'
-        return false
-      }
-
-      // Optional: Add amount validation endpoint
-      // await api.post('/validate-amount', { amount: value })
-      return true
-    } catch (err) {
-      error.value = err.response?.data?.message || 'Invalid amount'
-      return false
-    } finally {
-      isLoading.value = false
+  const setCheckoutFormData = data => {
+    checkoutFormData.value = {
+      ...checkoutFormData.value,
+      ...data,
     }
   }
 
-  // Add a setter for the checkout form data
-  const setCheckoutFormData = data => {
-    checkoutFormData.value = { ...checkoutFormData.value, ...data }
+  const clearError = () => {
+    error.value = ''
+  }
+
+  const validateAmount = async () => {
+    error.value = ''
+
+    const value = Number(amount.value)
+
+    if (!Number.isFinite(value) || value <= 0) {
+      error.value = 'Please enter a valid amount'
+
+      return false
+    }
+
+    return true
+  }
+
+  const extractDepositId = data => {
+    const directId =
+      data?.deposit_id ??
+      data?.depositId ??
+      data?.order_id ??
+      data?.orderId ??
+      data?.id
+
+    if (directId) {
+      return directId
+    }
+
+    const url = data?.redirect_url || data?.redirectUrl
+
+    if (!url) {
+      return null
+    }
+
+    try {
+      const parsedUrl = new URL(url, window.location.origin)
+
+      return (
+        parsedUrl.searchParams.get('order') ||
+        parsedUrl.searchParams.get('order_id') ||
+        parsedUrl.searchParams.get('deposit_id') ||
+        parsedUrl.searchParams.get('id') ||
+        null
+      )
+    } catch (err) {
+      console.error('Failed to extract deposit ID:', err)
+
+      return null
+    }
   }
 
   const checkout = async data => {
@@ -63,81 +103,98 @@ export const useTopUpStore = defineStore('topup', () => {
       isLoading.value = true
       error.value = ''
 
-      const checkoutData = {
+      const response = await api.post('/deposit/checkout', {
         ...data,
+      })
+
+      const responseData = response?.data
+
+      if (responseData?.status !== 'OK') {
+        throw new Error(responseData?.message || 'Checkout failed')
       }
 
-      const response = await api.post('deposit/checkout', checkoutData)
+      redirectUrl.value =
+        responseData?.redirect_url || responseData?.redirectUrl || ''
 
-      if (response.data.status === 'OK' && response.data.redirect_url) {
-        redirectUrl.value = response.data.redirect_url
+      depositId.value = extractDepositId(responseData)
 
-        // Extract deposit ID from the redirect URL if possible
-        try {
-          const urlParams = new URLSearchParams(
-            new URL(redirectUrl.value).search,
-          )
-          const orderId = urlParams.get('order')
-          if (orderId) {
-            depositId.value = orderId
-          }
-        } catch (parseErr) {
-          console.error('Error parsing redirect URL:', parseErr)
-        } finally {
-          // Clear checkout form data after successful checkout
-          resetCheckoutFormData()
-        }
+      resetCheckoutFormData()
 
-        return response.data
-      } else {
-        // If status is not OK, throw an error with the message from the backend
-        throw new Error(response.data.message || 'Checkout failed')
-      }
+      return responseData
     } catch (err) {
-      // Prioritize the response message, then the general error message
-      const errorMessage =
-        err.response?.data?.message ||
-        err.message ||
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
         'An unknown error occurred during checkout.'
-      error.value = errorMessage
-      throw new Error(errorMessage) // Re-throw the specific error message
+
+      error.value = message
+
+      throw new Error(message)
     } finally {
       isLoading.value = false
     }
   }
 
   const checkDepositStatus = async id => {
+    const currentId = id || depositId.value
+
+    if (!currentId) {
+      return null
+    }
+
     try {
-      if (!id && !depositId.value) {
-        console.error('No deposit ID provided')
+      const response = await api.get('/deposit/status', {
+        params: {
+          id: currentId,
+        },
+      })
+
+      const responseData = response?.data
+
+      if (!responseData) {
         return null
       }
 
-      const response = await api.get(`deposit/status/${id || depositId.value}`)
-      if (response.data && response.data.status) {
-        depositStatus.value = response.data.status
-        return response.data.status
+      const status = responseData.status || responseData.payload?.status || null
+
+      if (!status) {
+        return null
       }
-      return null
+
+      depositStatus.value = status
+
+      return status
     } catch (err) {
       console.error('Failed to check deposit status:', err)
+
       return null
     }
   }
 
-  const startStatusPolling = id => {
-    if (id) depositId.value = id
-
-    // Clear any existing interval
-    if (statusPollingInterval.value) {
-      clearInterval(statusPollingInterval.value)
+  const stopStatusPolling = () => {
+    if (!statusPollingInterval.value) {
+      return
     }
 
-    // Start polling every 5 seconds
+    clearInterval(statusPollingInterval.value)
+
+    statusPollingInterval.value = null
+  }
+
+  const startStatusPolling = id => {
+    if (id) {
+      depositId.value = id
+    }
+
+    if (!depositId.value) {
+      return
+    }
+
+    stopStatusPolling()
+
     statusPollingInterval.value = setInterval(async () => {
       const status = await checkDepositStatus()
 
-      // If we have a final status, stop polling
       if (
         status === 'Success' ||
         status === 'Error' ||
@@ -148,14 +205,6 @@ export const useTopUpStore = defineStore('topup', () => {
     }, 5000)
   }
 
-  const stopStatusPolling = () => {
-    if (statusPollingInterval.value) {
-      clearInterval(statusPollingInterval.value)
-      statusPollingInterval.value = null
-    }
-  }
-
-  // Add a function to reset only the checkout form data
   const resetCheckoutFormData = () => {
     checkoutFormData.value = {
       name: '',
@@ -170,22 +219,6 @@ export const useTopUpStore = defineStore('topup', () => {
     }
   }
 
-  const reset = () => {
-    amount.value = null
-    error.value = ''
-    redirectUrl.value = ''
-    depositId.value = null
-    depositStatus.value = null
-    paymentType.value = null
-    stopStatusPolling()
-    resetCheckoutFormData() // Also reset checkout form data on full reset
-  }
-
-  const clearError = () => {
-    error.value = ''
-  }
-
-  // Add a function to prefill checkout form data from user profile
   const prefillCheckoutFormData = user => {
     checkoutFormData.value = {
       name: user?.name || '',
@@ -194,33 +227,61 @@ export const useTopUpStore = defineStore('topup', () => {
       country: user?.country || '',
       city: user?.city || '',
       address: user?.address || '',
-      postCode: user?.zip || '',
+      postCode: user?.zip || user?.postCode || '',
       email: user?.email || '',
       termsAccepted: false,
     }
   }
 
+  const resetPaymentState = () => {
+    redirectUrl.value = ''
+    depositId.value = null
+    depositStatus.value = null
+
+    stopStatusPolling()
+  }
+
+  const reset = () => {
+    amount.value = null
+    paymentType.value = null
+
+    isLoading.value = false
+    error.value = ''
+
+    resetPaymentState()
+    resetCheckoutFormData()
+  }
+
   return {
     amount,
+    paymentType,
+
     isLoading,
     error,
+
     redirectUrl,
     depositId,
     depositStatus,
-    // Expose checkoutFormData and its setter
+
     checkoutFormData,
-    setCheckoutFormData,
-    paymentType,
+
     setAmount,
     setPaymentType,
+    setCheckoutFormData,
+
     validateAmount,
+
     checkout,
+
     checkDepositStatus,
     startStatusPolling,
     stopStatusPolling,
+
+    prefillCheckoutFormData,
+    resetCheckoutFormData,
+
+    resetPaymentState,
     reset,
     clearError,
-    resetCheckoutFormData,
-    prefillCheckoutFormData,
   }
 })

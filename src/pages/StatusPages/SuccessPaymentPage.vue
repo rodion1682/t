@@ -1,27 +1,65 @@
 <script setup>
-import BaseButton from '@/components/base/BaseButton.vue'
-import AuthLayout from '@/layouts/AuthLayout.vue'
-import StatusLayout from '@/pages/StatusPages/components/StatusLayout.vue'
-import { useCartStore } from '@/stores/cart'
-import { useTopUpStore } from '@/stores/topup'
 import { computed, onMounted } from 'vue'
+
 import { useRoute, useRouter } from 'vue-router'
 
-const router = useRouter()
+import BaseButton from '@/components/base/BaseButton.vue'
+
+import AuthLayout from '@/layouts/AuthLayout.vue'
+
+import StatusLayout from '@/pages/StatusPages/components/StatusLayout.vue'
+
+import { useCartStore } from '@/stores/cart'
+import { usePurchaseStore } from '@/stores/purchase'
+import { useTopUpStore } from '@/stores/topup'
+import { useUserStore } from '@/stores/user'
+
 const route = useRoute()
+const router = useRouter()
+
 const cartStore = useCartStore()
+
 const topupStore = useTopUpStore()
 
-const isTopUp = computed(() => route.query.type === 'topup')
+const purchaseStore = usePurchaseStore()
 
-const goToOrders = () => router.push({ name: 'account-order-history' })
-const goToTransactions = () => router.push({ name: 'account-payment-history' })
-const goHome = () => router.push('/')
-const goToProducts = () => router.push({ name: 'ProductListPage' })
+const userStore = useUserStore()
 
-onMounted(() => {
-  if (!isTopUp.value) cartStore.resetState()
-  if (isTopUp.value) topupStore.reset()
+const isTopUp = computed(() => {
+  return route.query.type === 'topup'
+})
+
+const goToOrders = () => {
+  router.push({
+    name: 'account-order-history',
+  })
+}
+
+const goToTransactions = () => {
+  router.push({
+    name: 'account-payment-history',
+  })
+}
+
+const goHome = () => {
+  router.push('/')
+}
+
+const goToProducts = () => {
+  router.push({
+    name: 'ProductListPage',
+  })
+}
+
+onMounted(async () => {
+  if (isTopUp.value) {
+    topupStore.reset()
+  } else {
+    cartStore.resetState()
+    purchaseStore.clearPaymentStatus()
+  }
+
+  await userStore.fetchProfile()
 })
 </script>
 

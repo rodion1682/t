@@ -1,196 +1,300 @@
 <template>
-  <div class="status-page">
-    <div class="status-page__inner _cnt">
-      <div class="status-page__content">
-        <div v-if="showLoader" class="status-page__loader">
-          <div class="status-page__spinner"></div>
+  <main class="status">
+    <div class="status__container _cnt">
+      <div class="status__card">
+        <div class="status__icon" :class="`status__icon_${tone}`">
+          <span v-if="showLoader" class="status__spinner" />
+
+          <span v-else class="status__symbol">
+            {{ symbol }}
+          </span>
         </div>
 
-        <div
-          v-if="title"
-          class="status-page__title _h3"
-          :class="`status-page__title_${tone}`"
-        >
+        <h1 class="status__title">
           {{ title }}
-        </div>
+        </h1>
 
-        <div v-if="text || subtext" class="status-page__top">
-          <div v-if="text" class="status-page__text">
-            {{ text }}
-          </div>
+        <p v-if="text" class="status__text">
+          {{ text }}
+        </p>
 
-          <div v-if="subtext" class="status-page__subtext">
-            {{ subtext }}
-          </div>
-        </div>
+        <p v-if="subtext" class="status__subtext">
+          {{ subtext }}
+        </p>
 
-        <div v-if="$slots.default" class="status-page__body">
+        <div v-if="$slots.default" class="status__body">
           <slot />
         </div>
 
-        <div v-if="$slots.actions" class="status-page__actions">
+        <div v-if="$slots.actions" class="status__actions">
           <slot name="actions" />
         </div>
       </div>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   title: {
     type: String,
-    default: '',
+    required: true,
   },
+
   text: {
     type: String,
     default: '',
   },
+
   subtext: {
     type: String,
     default: '',
   },
+
   tone: {
     type: String,
     default: 'primary',
-    validator: value =>
-      ['primary', 'success', 'error', 'pending'].includes(value),
   },
+
   showLoader: {
     type: Boolean,
     default: false,
   },
 })
+
+const symbol = computed(() => {
+  if (props.tone === 'success') {
+    return '✓'
+  }
+
+  if (props.tone === 'error') {
+    return '!'
+  }
+
+  if (props.tone === 'pending') {
+    return '…'
+  }
+
+  return 'i'
+})
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
-.status-page {
-  position: relative;
-  z-index: 2;
-
+.status {
   display: flex;
-  flex: 1 1 100%;
-  flex-direction: column;
+  flex: 1 1 auto;
   align-items: center;
 
   width: 100%;
 
-  @include adaptiveValue('padding-top', 80, 25);
-  @include adaptiveValue('padding-bottom', 80, 25);
+  @include adaptiveValue('padding-top', 80, 35);
+  @include adaptiveValue('padding-bottom', 100, 50);
 
-  overflow: hidden;
-
-  &__inner {
-    width: 100%;
-    align-self: center;
-    margin: auto;
-  }
-
-  &__content {
-    position: relative;
-    z-index: 3;
-
-    width: 100%;
-    max-width: 466px;
-
-    margin-left: auto;
-
-    @include adaptiveValue('margin-right', 122, 0, 1440, 620, 1);
-
-    text-align: center;
-
-    @media (max-width: $md4) {
-      margin-right: 0;
-      margin-left: auto;
-    }
-  }
-
-  &__loader {
+  &__container {
     display: flex;
+    align-items: center;
     justify-content: center;
 
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 30, 20);
-    }
+    width: 100%;
   }
 
-  &__spinner {
-    width: 64px;
-    min-width: 64px;
-    height: 64px;
+  &__card {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
 
-    border: 4px solid var(--pending-color);
-    border-top-color: transparent;
+    width: 100%;
+    max-width: 680px;
+
+    @include adaptiveValue('padding-top', 56, 32);
+    @include adaptiveValue('padding-right', 56, 20);
+    @include adaptiveValue('padding-bottom', 50, 30);
+    @include adaptiveValue('padding-left', 56, 20);
+
+    border-radius: 30px;
+
+    background: var(--double-spanish-white);
+
+    box-shadow: 0 12px 40px var(--cod-gray-07);
+
+    text-align: center;
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 72px;
+    height: 72px;
+
+    margin-bottom: 24px;
+
     border-radius: 50%;
 
-    animation: status-page-spin 1s linear infinite;
-  }
-
-  &__title {
-    text-align: center;
-    font-weight: 700;
-
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 30, 15);
-    }
-
-    &_primary {
-      color: var(--primary-color);
-    }
-
     &_success {
+      background: rgba(52, 168, 83, 0.12);
+
       color: var(--success-color);
     }
 
     &_error {
+      background: rgba(237, 0, 6, 0.1);
+
       color: var(--error-color);
     }
 
     &_pending {
-      color: var(--pending-color);
+      background: var(--copper-10);
+
+      color: var(--copper);
+    }
+
+    &_primary {
+      background: rgba(114, 129, 87, 0.12);
+
+      color: var(--hemlock);
     }
   }
 
-  &__top {
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 30, 20);
-    }
+  &__symbol {
+    font-family: var(--font-space-grotesk);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  &__spinner {
+    width: 34px;
+    height: 34px;
+
+    border: 3px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+
+    animation: status-spin 0.8s linear infinite;
+  }
+
+  &__title {
+    margin: 0;
+
+    @include sg-36-700;
+
+    color: var(--cod-gray);
   }
 
   &__text {
-    color: var(--secondary-color);
-    line-height: 150%;
+    max-width: 500px;
 
-    &:not(:last-child) {
-      margin-bottom: 5px;
-    }
+    margin: 16px 0 0;
+
+    @include ibm-15-400;
+
+    color: var(--cod-gray);
   }
 
   &__subtext {
-    color: var(--secondary-color);
-    line-height: 150%;
+    max-width: 500px;
+
+    margin: 8px 0 0;
+
+    @include ibm-14-400;
+
+    color: var(--makara);
   }
 
   &__body {
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 20, 10);
-    }
+    width: 100%;
+
+    margin-top: 24px;
   }
 
   &__actions {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
 
     width: 100%;
+
+    gap: 10px;
+
+    margin-top: 30px;
+
+    :deep(.base-button),
+    :deep(button),
+    :deep(a) {
+      flex: 1 1 180px;
+
+      max-width: 240px;
+    }
   }
 }
 
-@keyframes status-page-spin {
+@media (max-width: $md3) {
+  .status {
+    align-items: flex-start;
+
+    &__card {
+      border-radius: 24px;
+    }
+
+    &__icon {
+      width: 64px;
+      height: 64px;
+
+      margin-bottom: 20px;
+    }
+
+    &__symbol {
+      font-size: 28px;
+    }
+  }
+}
+
+@media (max-width: $md5) {
+  .status {
+    &__card {
+      border-radius: 20px;
+    }
+
+    &__icon {
+      width: 58px;
+      height: 58px;
+
+      margin-bottom: 18px;
+    }
+
+    &__symbol {
+      font-size: 25px;
+    }
+
+    &__actions {
+      align-items: stretch;
+      flex-direction: column;
+
+      margin-top: 24px;
+
+      :deep(.base-button),
+      :deep(button),
+      :deep(a) {
+        flex: none;
+
+        width: 100%;
+        max-width: none;
+      }
+    }
+  }
+}
+
+@keyframes status-spin {
   to {
     transform: rotate(360deg);
   }
