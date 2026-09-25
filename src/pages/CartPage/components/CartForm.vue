@@ -34,11 +34,8 @@
     <!-- TOTAL -->
     <div class="checkout__summary">
       <div class="checkout__count">
-        {{
-          $t('{count} items in the cart', {
-            count: cartStore.cartItemsCount,
-          })
-        }}
+        {{ cartStore.cartItemsCount }}
+        {{ $t('items in the cart') }}
       </div>
 
       <div class="checkout__total">
@@ -51,12 +48,12 @@
           reverse
           skip-conversion
           is-currency
+          size="sg-32"
           class="checkout__total-price"
         />
       </div>
     </div>
 
-    <!-- STEAM TRADE LINK -->
     <div class="checkout__section">
       <div class="checkout__section-head">
         <div class="checkout__section-title">
@@ -431,30 +428,19 @@ watch(
 
   top: 90px;
 
-  padding: 30px;
+  @include adaptiveValue('padding', 30, 15);
 
-  border-radius: 30px;
+  @include adaptiveValue('border-radius', 38, 20);
 
   background: var(--double-spanish-white);
 
-  /* =========================
-     TITLE
-  ========================= */
-
   &__title {
-    margin: 0 0 26px;
-
-    @include ibm-14-700;
-
-    color: var(--cod-gray);
-
+    @include ibm-16-700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    &:not(:last-child) {
+      @include adaptiveValue('margin-bottom', 22, 15);
+    }
   }
-
-  /* =========================
-     ORDER
-  ========================= */
 
   &__order {
     display: flex;
@@ -462,9 +448,8 @@ watch(
 
     gap: 18px;
 
-    padding-bottom: 24px;
-
-    border-bottom: 1px solid var(--cod-gray-16);
+    border-bottom: 2px solid var(--sisal);
+    @include adaptiveValue('padding-bottom', 22, 18);
   }
 
   &__order-item {
@@ -482,7 +467,7 @@ watch(
   &__order-title {
     overflow: hidden;
 
-    @include ibm-12-400;
+    @include ibm-14-400;
 
     color: var(--cod-gray);
 
@@ -491,27 +476,25 @@ watch(
   }
 
   &__order-exterior {
-    margin-top: 4px;
+    margin-top: 3px;
 
-    @include ibm-12-700;
+    @include ibm-13-700;
 
     color: var(--kelp);
+    text-transform: capitalize;
   }
 
   &__order-price {
     flex: 0 0 auto;
-
+    font-weight: 700;
     color: var(--cod-gray);
   }
 
-  /* =========================
-     SUMMARY
-  ========================= */
-
   &__summary {
-    padding: 22px 0;
+    @include adaptiveValue('padding-top', 22, 18);
+    @include adaptiveValue('padding-bottom', 22, 18);
 
-    border-bottom: 1px solid var(--cod-gray-16);
+    border-bottom: 2px solid var(--sisal);
   }
 
   &__count {
@@ -544,12 +527,8 @@ watch(
     color: var(--cod-gray);
   }
 
-  /* =========================
-     SECTION
-  ========================= */
-
   &__section {
-    padding-top: 24px;
+    @include adaptiveValue('padding-top', 22, 18);
   }
 
   &__section-head {
@@ -576,10 +555,6 @@ watch(
     color: var(--copper);
   }
 
-  /* =========================
-     TRADE LINK
-  ========================= */
-
   &__trade {
     width: 100%;
   }
@@ -591,10 +566,6 @@ watch(
 
     color: var(--makara);
   }
-
-  /* =========================
-     BALANCE
-  ========================= */
 
   &__balance {
     display: flex;
@@ -645,18 +616,14 @@ watch(
     color: var(--cod-gray);
   }
 
-  /* =========================
-     WARNING
-  ========================= */
-
   &__warning {
-    margin-top: 18px;
+    @include adaptiveValue('margin-top', 22, 18);
 
-    padding: 18px;
+    @include adaptiveValue('padding', 20, 15);
 
-    border: 2px solid var(--copper);
+    border: 2px solid var(--tuscany);
 
-    border-radius: 22px;
+    @include adaptiveValue('border-radius', 28, 20);
 
     background: rgba(255, 249, 242, 0.72);
   }
@@ -667,7 +634,7 @@ watch(
 
     gap: 10px;
 
-    @include ibm-12-700;
+    @include ibm-14-700;
 
     color: var(--hairy-heath);
   }
@@ -677,10 +644,10 @@ watch(
     align-items: center;
     justify-content: center;
 
-    flex: 0 0 20px;
+    flex: 0 0 22px;
 
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
 
     border-radius: 50%;
 
@@ -688,7 +655,7 @@ watch(
 
     color: var(--janna);
 
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1;
     font-weight: 700;
   }
@@ -700,15 +667,16 @@ watch(
 
     gap: 4px;
 
-    margin: 14px 0;
+    margin: 16px 0;
 
-    @include ibm-14-400;
+    @include ibm-13-700;
+    font-weight: 400;
 
     color: var(--hairy-heath);
   }
 
   &__warning-price {
-    font-weight: 700;
+    font-weight: inherit;
 
     color: var(--hairy-heath);
   }
@@ -717,17 +685,9 @@ watch(
     width: fit-content;
   }
 
-  /* =========================
-     ERROR
-  ========================= */
-
   &__error {
     margin-top: 16px;
   }
-
-  /* =========================
-     PAY
-  ========================= */
 
   &__pay {
     width: 100%;
@@ -742,19 +702,11 @@ watch(
   }
 }
 
-/* =========================
-   TABLET
-========================= */
-
 @media (max-width: $md2) {
   .checkout {
     padding: 22px;
   }
 }
-
-/* =========================
-   MOBILE
-========================= */
 
 @media (max-width: $md3) {
   .checkout {

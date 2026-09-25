@@ -64,6 +64,16 @@
   line-height: 27.2px;
 }
 
+@mixin ibm-16-700 {
+  font-family: var(--font-ibm-plex);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 24.8px;
+  letter-spacing: 0.96px;
+  color: var(--cod-gray);
+  text-transform: capitalize;
+}
+
 @mixin ibm-15-400 {
   font-family: var(--font-ibm-plex);
   font-weight: 400;
@@ -155,12 +165,28 @@
   color: var(--cod-gray);
 }
 
+@mixin sg-40-700 {
+  font-family: var(--font-space-grotesk);
+  font-weight: 700;
+  @include adaptiveValue('font-size', 38, 27);
+  @include adaptiveValue('line-height', 38, 27);
+  letter-spacing: 0.78px;
+  color: var(--cod-gray);
+}
+
 @mixin sg-36-700 {
   font-family: var(--font-space-grotesk);
   font-weight: 700;
   @include adaptiveValue('font-size', 36, 26);
   @include adaptiveValue('line-height', 40, 30);
   letter-spacing: -0.54px;
+}
+
+@mixin sg-32-400 {
+  font-family: var(--font-space-grotesk);
+  font-weight: 400;
+  @include adaptiveValue('font-size', 32, 24);
+  @include adaptiveValue('line-height', 50, 30);
 }
 
 @mixin sg-26-700 {

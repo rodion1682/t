@@ -77,41 +77,41 @@ const { marketRoute } = useGame()
 
   @include adaptiveValue('padding-top', 50, 25);
 
-  @include adaptiveValue('padding-bottom', 110, 40);
+  @include adaptiveValue('padding-bottom', 110, 25);
 
   &__inner {
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 100%;
   }
 
   &__heading {
     &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 34, 22);
+      @include adaptiveValue('margin-bottom', 34, 18);
     }
   }
 
   &__eyebrow {
-    margin-bottom: 10px;
-
     @include ibm-12-700;
 
     color: var(--makara);
 
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+
+    &:not(:last-child) {
+      @include adaptiveValue('margin-bottom', 15, 10);
+    }
   }
 
   &__title {
     margin: 0;
 
-    @include sg-44-700;
-
-    color: var(--cod-gray);
-
-    text-transform: uppercase;
+    @include sg-40-700;
   }
 
   &__loading {
-    margin: 100px auto;
+    margin: auto;
   }
 
   &__content {

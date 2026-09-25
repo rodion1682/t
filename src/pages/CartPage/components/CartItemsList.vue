@@ -37,6 +37,7 @@
             reverse
             skip-conversion
             is-currency
+            size="sg-18"
             class="cart-list__price"
           />
 
@@ -153,15 +154,14 @@ const removeItem = async id => {
 .cart-list {
   padding: 10px;
 
-  border-radius: 30px;
-
-  background: rgba(235, 221, 197, 0.55);
+  @include adaptiveValue('border-radius', 28, 20);
+  background: var(--double-spanish-white);
 
   &__items {
     display: flex;
     flex-direction: column;
 
-    gap: 4px;
+    gap: 2px;
   }
 
   &__item {
@@ -171,11 +171,11 @@ const removeItem = async id => {
 
     gap: 20px;
 
-    min-height: 122px;
+    @include adaptiveValue('min-height', 122, 100);
 
-    @include adaptiveValue('padding', 20, 12);
+    @include adaptiveValue('padding', 20, 15);
 
-    border-radius: 25px;
+    @include adaptiveValue('border-radius', 28, 20);
 
     background: var(--merino);
   }
@@ -206,14 +206,13 @@ const removeItem = async id => {
     align-items: center;
     justify-content: center;
 
-    flex: 0 0 96px;
+    @include adaptiveValue('min-width', 114, 100);
 
-    width: 96px;
-    height: 82px;
+    @include adaptiveValue('height', 86, 76);
 
     padding: 10px;
 
-    border-radius: 22px;
+    @include adaptiveValue('border-radius', 28, 20);
 
     background: linear-gradient(145deg, #c9985f, #e8b875);
 
@@ -246,7 +245,7 @@ const removeItem = async id => {
     transition: color 0.3s ease;
 
     &:not(:last-child) {
-      margin-bottom: 8px;
+      @include adaptiveValue('margin-bottom', 11, 8);
     }
   }
 
@@ -261,9 +260,10 @@ const removeItem = async id => {
   }
 
   &__exterior {
-    @include ibm-13-700;
+    @include ibm-14-700;
 
     color: var(--kelp);
+    text-transform: capitalize;
   }
 
   &__right {
@@ -291,7 +291,7 @@ const removeItem = async id => {
 
     background: transparent;
 
-    @include ibm-12-700;
+    @include ibm-13-700;
 
     color: var(--rope);
 

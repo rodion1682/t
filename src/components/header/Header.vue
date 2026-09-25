@@ -100,8 +100,10 @@
           >
             <PriceFormatter
               class="balance__balance"
-              :price="userBalance"
-              skipConversion
+              :price="userBalanceFiat"
+              skip-conversion
+              reverse
+              is-currency
             />
 
             <div class="balance__plus">
@@ -207,7 +209,7 @@ const userStore = useUserStore()
 const cartStore = useCartStore()
 const settingsStore = useSettingsStore()
 
-const { userBalance } = storeToRefs(userStore)
+const { userBalanceFiat } = storeToRefs(userStore)
 
 const { marketRoute, syncGame } = useGame()
 
