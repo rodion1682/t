@@ -7,7 +7,12 @@
         'card_in-cart': isInCart,
       }"
     >
-      <button type="button" class="card__preview" @click="openDetails">
+      <button
+        type="button"
+        class="card__preview"
+        :aria-label="$t('View item details')"
+        @click="openDetails"
+      >
         <div v-if="productImage" class="card__image">
           <img :src="productImage" :alt="productTitle" loading="lazy" />
         </div>
@@ -36,7 +41,7 @@
             v-if="price"
             :price="price"
             reverse
-            size=" sg-18"
+            size="sg-18"
             skip-conversion
             is-currency
             class="card__price"
@@ -70,7 +75,7 @@
     </article>
 
     <ProductDetailsModal
-      v-if="SHOW_DETAILS_MODAL && isDetailsOpen"
+      v-if="detailsModalActive && isDetailsOpen"
       :show="isDetailsOpen"
       :product="product"
       :cart-item-id="cartActionId"
@@ -82,22 +87,24 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import PriceFormatter from '@/components/PriceFormatter.vue'
+
 import { TrashIcon } from '@/components/icons'
 import SvgIcon from '@/components/icons/SvgIcon.vue'
+
 import ProductDetailsModal from '@/components/modals/ProductDetailsModal.vue'
 
 import { useToast } from '@/composables/useToast'
+
 import { useCartStore } from '@/stores/cart'
 
 defineOptions({
   inheritAttrs: false,
 })
-
-const SHOW_DETAILS_MODAL = true
 
 const VITE_STATIC_DOMAIN = import.meta.env.VITE_STATIC_DOMAIN || ''
 
@@ -121,6 +128,11 @@ const props = defineProps({
     type: [Number, String],
     default: null,
   },
+
+  detailsModalActive: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const cartStore = useCartStore()
@@ -131,6 +143,10 @@ const { t } = useI18n()
 
 const isLoading = ref(false)
 const isDetailsOpen = ref(false)
+
+/* =========================
+   TEXT HELPERS
+========================= */
 
 const formatText = value => {
   return String(value || '')
@@ -150,38 +166,12 @@ const cleanProductTitle = value => {
     .trim()
 }
 
-const cartActionId = computed(() => {
-  return props.cartItemId || props.product.id
-})
+/* =========================
+   PRODUCT
+========================= */
 
-const isInCart = computed(() => {
-  return cartStore.isItemInCart(props.product.id)
-})
-
-const shouldShowRemove = computed(() => {
-  return props.forceCartMode || isInCart.value
-})
-
-const productImage = computed(() => {
-  const imageUrl = props.product?.img_url || ''
-
-  if (!imageUrl) {
-    return ''
-  }
-
-  if (/^https?:\/\//i.test(imageUrl)) {
-    return imageUrl
-  }
-
-  return `${VITE_STATIC_DOMAIN}${imageUrl}`
-})
-
-const price = computed(() => {
-  const value = Number.parseFloat(
-    props.product?.internal_price ?? props.product?.price ?? 0,
-  )
-
-  return Number.isFinite(value) ? value : 0
+const productId = computed(() => {
+  return props.product?.id ?? null
 })
 
 const productGame = computed(() => {
@@ -238,18 +228,76 @@ const productInfoLine = computed(() => {
   )
 })
 
-const openDetails = () => {
-  if (SHOW_DETAILS_MODAL) {
+/* =========================
+   IMAGE
+========================= */
+
+const productImage = computed(() => {
+  const imageUrl = props.product?.img_url || ''
+
+  if (!imageUrl) {
+    return ''
+  }
+
+  if (/^https?:\/\//i.test(imageUrl)) {
+    return imageUrl
+  }
+
+  return `${VITE_STATIC_DOMAIN}${imageUrl}`
+})
+
+/* =========================
+   PRICE
+========================= */
+
+const price = computed(() => {
+  const value = Number.parseFloat(
+    props.product?.internal_price ?? props.product?.price ?? 0,
+  )
+
+  return Number.isFinite(value) ? value : 0
+})
+
+/* =========================
+   CART STATE
+========================= */
+
+const cartActionId = computed(() => {
+  return props.cartItemId || productId.value
+})
+
+const isInCart = computed(() => {
+  if (!productId.value) {
+    return false
+  }
+
+  return cartStore.isItemInCart(productId.value)
+})
+
+const shouldShowRemove = computed(() => {
+  return props.forceCartMode || isInCart.value
+})
+
+/* =========================
+   DETAILS
+========================= */
+
+const openDetails = async () => {
+  if (!productId.value) {
+    return
+  }
+
+  if (props.detailsModalActive) {
     isDetailsOpen.value = true
 
     return
   }
 
-  router.push({
+  await router.push({
     name: 'ProductDetailsPage',
 
     params: {
-      productId: props.product.id,
+      productId: productId.value,
     },
 
     query: {
@@ -262,7 +310,15 @@ const closeDetails = () => {
   isDetailsOpen.value = false
 }
 
+/* =========================
+   REMOVE FROM CART
+========================= */
+
 const removeFromCart = async () => {
+  if (!cartActionId.value) {
+    return
+  }
+
   try {
     isLoading.value = true
 
@@ -284,12 +340,20 @@ const removeFromCart = async () => {
   }
 }
 
+/* =========================
+   ADD TO CART
+========================= */
+
 const addToCart = async () => {
+  if (!productId.value) {
+    return
+  }
+
   try {
     isLoading.value = true
 
     const { success, isAlreadyInCart, message, isUnauthorized } =
-      await cartStore.addToCart(props.product.id)
+      await cartStore.addToCart(productId.value)
 
     if (success) {
       toast.success(t('Item added to cart'))
@@ -324,6 +388,10 @@ const addToCart = async () => {
     isLoading.value = false
   }
 }
+
+/* =========================
+   CART ACTION
+========================= */
 
 const handleCartAction = async () => {
   if (isLoading.value) {
@@ -363,7 +431,9 @@ const handleCartAction = async () => {
 
   background: var(--double-spanish-white);
 
-  transition: all 0.3s ease 0s;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 
   @media (any-hover: hover) {
     &:hover {
@@ -372,6 +442,10 @@ const handleCartAction = async () => {
       box-shadow: 0 12px 28px var(--cod-gray-16);
     }
   }
+
+  /* =========================
+     IMAGE AREA
+  ========================= */
 
   &__preview {
     position: relative;
@@ -416,9 +490,9 @@ const handleCartAction = async () => {
 
       position: absolute;
 
-      left: 10%;
       right: 10%;
       bottom: 8%;
+      left: 10%;
 
       height: 12%;
 
@@ -469,6 +543,10 @@ const handleCartAction = async () => {
     }
   }
 
+  /* =========================
+     BODY
+  ========================= */
+
   &__body {
     display: flex;
     flex-direction: column;
@@ -485,6 +563,10 @@ const handleCartAction = async () => {
 
     @include adaptiveValue('padding-left', 18, 10);
   }
+
+  /* =========================
+     TITLE
+  ========================= */
 
   &__title {
     display: block;
@@ -513,7 +595,7 @@ const handleCartAction = async () => {
 
     cursor: pointer;
 
-    transition: color 0.3s ease 0s;
+    transition: color 0.3s ease;
 
     @media (any-hover: hover) {
       &:hover {
@@ -521,6 +603,10 @@ const handleCartAction = async () => {
       }
     }
   }
+
+  /* =========================
+     QUALITY / EXTERIOR
+  ========================= */
 
   &__quality {
     width: 100%;
@@ -537,6 +623,10 @@ const handleCartAction = async () => {
 
     color: var(--hemlock);
   }
+
+  /* =========================
+     BOTTOM
+  ========================= */
 
   &__bottom {
     display: flex;
@@ -555,6 +645,10 @@ const handleCartAction = async () => {
 
     color: var(--cod-gray);
   }
+
+  /* =========================
+     CART BUTTON
+  ========================= */
 
   &__cart {
     display: flex;
@@ -578,7 +672,10 @@ const handleCartAction = async () => {
 
     cursor: pointer;
 
-    transition: all 0.3s ease 0s;
+    transition:
+      transform 0.3s ease,
+      background 0.3s ease,
+      opacity 0.3s ease;
 
     @media (any-hover: hover) {
       &:hover:not(:disabled) {
@@ -633,9 +730,9 @@ const handleCartAction = async () => {
     letter-spacing: 1px;
   }
 
-  // =========================
-  // ITEM ALREADY IN CART
-  // =========================
+  /* =========================
+     IN CART
+  ========================= */
 
   &_in-cart {
     .card__quality {
@@ -644,9 +741,9 @@ const handleCartAction = async () => {
   }
 }
 
-// =========================
-// TABLET
-// =========================
+/* =========================
+   TABLET
+========================= */
 
 @media (max-width: $md2) {
   .card {
@@ -662,9 +759,9 @@ const handleCartAction = async () => {
   }
 }
 
-// =========================
-// MOBILE
-// =========================
+/* =========================
+   MOBILE
+========================= */
 
 @media (max-width: $md3) {
   .card {
@@ -710,7 +807,6 @@ const handleCartAction = async () => {
 
     &__title {
       font-size: 11px;
-
       line-height: 135%;
     }
 
@@ -718,7 +814,6 @@ const handleCartAction = async () => {
       margin-top: 4px;
 
       font-size: 10px;
-
       line-height: 130%;
     }
 
