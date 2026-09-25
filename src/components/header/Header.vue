@@ -331,24 +331,24 @@ const goToHomeSection = async sectionId => {
   if (!isHomePage.value) {
     await router.push({
       name: 'HomePage',
-
-      hash: `#${sectionId}`,
+      query: {
+        section: sectionId,
+      },
     })
 
-    const element = await waitForSection(sectionId)
-
-    if (!element) {
-      return
-    }
-
+    await waitForSection(sectionId)
     await scrollToSection(sectionId)
 
     return
   }
 
-  if (route.hash !== `#${sectionId}`) {
-    window.history.replaceState(null, '', `${route.path}#${sectionId}`)
-  }
+  await router.replace({
+    name: 'HomePage',
+    query: {
+      ...route.query,
+      section: sectionId,
+    },
+  })
 
   await scrollToSection(sectionId)
 }

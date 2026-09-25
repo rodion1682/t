@@ -261,7 +261,6 @@ const loadDrop = async () => {
 
     if (data?.status !== 'OK') {
       dropItem.value = null
-
       return
     }
 
@@ -414,7 +413,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="home">
-
     <div
       v-if="heroLoading"
       class="home__section-loader home__section-loader_hero"
@@ -441,7 +439,6 @@ onBeforeUnmount(() => {
       :categories="categories"
       :category-count="categoryCount"
     />
-
 
     <div ref="listingTrigger" class="home__trigger" aria-hidden="true"></div>
 

@@ -62,6 +62,7 @@ const { marketRoute } = useGame()
 @use '@/assets/styles/components/classes' as *;
 
 .how {
+  @include adaptiveValue('padding-top', 90, 25);
   @include adaptiveValue('padding-bottom', 60, 25);
   &__inner {
   }
