@@ -1,42 +1,78 @@
 <template>
   <Teleport to="body">
-    <div v-if="show" class="modal" @click="handleBackdropClick">
+    <Transition name="modal">
       <div
-        class="modal__inner background-gradient"
-        :class="[wrapperClasses, modalContainerClass]"
-        @click.stop
+        v-if="show"
+        class="modal"
+        :class="backdropClass"
+        @mousedown="handleBackdropClick"
       >
-        <button
-          type="button"
-          class="modal__close"
-          :class="closeButtonClass"
-          @click="handleClose"
+        <div
+          ref="innerRef"
+          class="modal__inner"
+          :class="[wrapperClasses, modalContainerClass]"
+          role="dialog"
+          aria-modal="true"
+          tabindex="-1"
+          @mousedown.stop
         >
-          <slot name="close-icon">
-            <SvgIcon :icon="CloseIcon" class="modal__close-icon" />
-          </slot>
-        </button>
+          <button
+            type="button"
+            class="modal__close"
+            :class="closeButtonClass"
+            :aria-label="$t('Close')"
+            @click="handleClose"
+          >
+            <slot name="close-icon">
+              <SvgIcon :icon="CloseIcon" class="modal__close-icon" />
+            </slot>
+          </button>
 
-        <div class="modal__content">
-          <slot />
+          <div class="modal__content">
+            <slot />
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </Teleport>
 </template>
 
 <script setup>
-import { CloseIcon } from '@/components/icons'
-import SvgIcon from '@/components/icons/SvgIcon.vue'
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
+import { CloseIcon } from '@/components/icons'
+import SvgIcon from '@/components/icons/SvgIcon.vue'
+
 const props = defineProps({
-  show: { type: Boolean, required: true },
-  persistent: { type: Boolean, default: false },
-  backdropClass: { type: String, default: '' },
-  modalContainerClass: { type: String, default: '' },
-  wrapperClasses: { type: String, default: '' },
-  closeButtonClass: { type: String, default: '' },
+  show: {
+    type: Boolean,
+    required: true,
+  },
+
+  persistent: {
+    type: Boolean,
+    default: false,
+  },
+
+  backdropClass: {
+    type: String,
+    default: '',
+  },
+
+  modalContainerClass: {
+    type: String,
+    default: '',
+  },
+
+  wrapperClasses: {
+    type: String,
+    default: '',
+  },
+
+  closeButtonClass: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['close', 'update:show'])
@@ -45,8 +81,11 @@ const innerRef = ref(null)
 
 const GLOBAL_KEY = '__app_scroll_lock__'
 
+let didLock = false
+let previouslyFocusedElement = null
+
 const getScrollbarWidth = () => {
-  return window.innerWidth - document.documentElement.clientWidth || 5
+  return Math.max(0, window.innerWidth - document.documentElement.clientWidth)
 }
 
 const getGlobalState = () => {
@@ -59,12 +98,13 @@ const getGlobalState = () => {
   return document[GLOBAL_KEY]
 }
 
-let didLock = false
-
 const lockScrollGlobal = () => {
-  if (didLock) return
+  if (didLock) {
+    return
+  }
 
   const state = getGlobalState()
+
   state.count += 1
   didLock = true
 
@@ -79,32 +119,50 @@ const lockScrollGlobal = () => {
 }
 
 const unlockScrollGlobal = () => {
-  if (!didLock) return
+  if (!didLock) {
+    return
+  }
 
   didLock = false
 
   const state = getGlobalState()
+
   state.count = Math.max(0, state.count - 1)
 
-  if (state.count > 0) return
+  if (state.count > 0) {
+    return
+  }
 
   document.body.classList.remove('scroll-locked')
+
   document.documentElement.style.removeProperty('--scrollbar-compensation')
 }
 
-const handleClose = () => {
-  emit('close')
-  emit('update:show', false)
+const focusModal = async () => {
+  await nextTick()
+
+  innerRef.value?.focus({
+    preventScroll: true,
+  })
 }
 
-const handleBackdropClick = e => {
-  if (!props.persistent && e.target === e.currentTarget) {
+const handleClose = () => {
+  emit('update:show', false)
+  emit('close')
+}
+
+const handleBackdropClick = event => {
+  if (props.persistent) {
+    return
+  }
+
+  if (event.target === event.currentTarget) {
     handleClose()
   }
 }
 
-const handleEscKey = e => {
-  if (e.key === 'Escape' && props.show && !props.persistent) {
+const handleEscKey = event => {
+  if (event.key === 'Escape' && props.show && !props.persistent) {
     handleClose()
   }
 }
@@ -113,12 +171,16 @@ onMounted(() => {
   document.addEventListener('keydown', handleEscKey)
 
   if (props.show) {
+    previouslyFocusedElement = document.activeElement
+
     lockScrollGlobal()
+    focusModal()
   }
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscKey)
+
   unlockScrollGlobal()
 })
 
@@ -126,12 +188,24 @@ watch(
   () => props.show,
   async value => {
     if (value) {
+      previouslyFocusedElement = document.activeElement
+
       lockScrollGlobal()
-      await nextTick()
-      innerRef.value?.focus?.()
-    } else {
-      unlockScrollGlobal()
+
+      await focusModal()
+
+      return
     }
+
+    unlockScrollGlobal()
+
+    await nextTick()
+
+    previouslyFocusedElement?.focus?.({
+      preventScroll: true,
+    })
+
+    previouslyFocusedElement = null
   },
 )
 
@@ -142,6 +216,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
@@ -163,72 +238,151 @@ defineExpose({
 
 .modal {
   position: fixed;
-  inset: 0;
   z-index: var(--modal-z-index);
+
+  inset: 0;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  background-color: rgb(11, 11, 18, 0.8);
-  //backdrop-filter: 25px;
-  //-webkit-backdrop-filter: 25px;
+  padding: 24px;
 
-  @media (max-width: $md5) {
-    align-items: flex-end;
-    padding: 0;
-  }
+  background: rgba(32, 30, 29, 0.46);
+
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+
+  overflow-x: hidden;
+  overflow-y: auto;
 
   &__inner {
     position: relative;
-    width: 100%;
-    max-height: calc(100vh - 40px);
-    overflow: auto;
-    @include adaptiveValue('padding-top', 60, 25);
-    @include adaptiveValue('padding-bottom', 60, 25);
-    @include adaptiveValue('padding-left', 40, 10, 1440, 768, 1);
-    @include adaptiveValue('padding-right', 40, 10, 1440, 768, 1);
-    @include adaptiveValue('border-radius', 20, 10);
-    background-color: var(--bg-primary-color);
-    border: 1px solid var(--border-primary-color);
 
-    @media (max-width: $md5) {
-      max-height: 90vh;
-      border-bottom-left-radius: 0;
-      border-bottom-right-radius: 0;
+    width: 100%;
+
+    max-height: calc(100dvh - 48px);
+
+    @include adaptiveValue('padding-top', 46, 30);
+
+    @include adaptiveValue('padding-right', 40, 20);
+
+    @include adaptiveValue('padding-bottom', 40, 28);
+
+    @include adaptiveValue('padding-left', 40, 20);
+
+    border: 1px solid rgba(130, 121, 106, 0.2);
+
+    border-radius: 30px;
+
+    background: var(--double-spanish-white);
+
+    box-shadow:
+      0 28px 80px rgba(32, 30, 29, 0.2),
+      0 6px 24px rgba(32, 30, 29, 0.08);
+
+    outline: none;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--copper) transparent;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border-radius: 20px;
+
+      background: var(--copper);
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: var(--tuscany);
     }
   }
 
   &__close {
     position: absolute;
-    @include adaptiveValue('top', 10, 3);
-    @include adaptiveValue('right', 10, 3);
     z-index: 5;
+
+    top: 16px;
+    right: 16px;
+
     display: flex;
     align-items: center;
     justify-content: center;
-    width: fit-content;
-    @include adaptiveValue('border-radius', 10, 4);
-    @include adaptiveValue('min-width', 40, 30);
-    @include adaptiveValue('height', 40, 30);
-    padding: 0;
-    border: none;
-    background-color: transparent;
-    color: var(--hint-primary-color);
 
-    transition: all 0.3s ease 0s;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+
+    padding: 0;
+
+    border: 1px solid rgba(100, 92, 80, 0.2);
+
+    border-radius: 50%;
+
+    background: rgba(249, 244, 237, 0.7);
+
+    color: var(--kelp);
+
+    cursor: pointer;
+
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      transform 0.2s ease;
 
     @media (any-hover: hover) {
       &:hover {
-        color: var(--primary-color);
+        border-color: var(--copper);
+
+        background: var(--copper);
+
+        color: var(--merino);
+
+        transform: rotate(6deg);
       }
+    }
+
+    &:focus-visible {
+      border-color: var(--copper);
+
+      outline: 2px solid var(--copper-10);
+
+      outline-offset: 2px;
+    }
+
+    &:active {
+      transform: scale(0.94);
     }
   }
 
   &__close-icon {
-    @include adaptiveValue('min-width', 18, 14);
-    @include adaptiveValue('width', 18, 14);
-    @include adaptiveValue('height', 18, 14);
+    width: 13px;
+    min-width: 13px;
+    height: 13px;
+
+    color: inherit;
+
+    :deep(svg) {
+      display: block;
+
+      width: 100%;
+      height: 100%;
+    }
+
+    :deep(path) {
+      stroke: currentColor;
+    }
   }
 
   &__content {
@@ -236,9 +390,81 @@ defineExpose({
     z-index: 1;
 
     width: 100%;
+    min-width: 0;
+
     padding: 0;
 
     background: transparent;
+
+    color: var(--cod-gray);
+  }
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.25s ease;
+
+  .modal__inner {
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s ease;
+  }
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+
+  .modal__inner {
+    opacity: 0;
+
+    transform: translateY(12px) scale(0.975);
+  }
+}
+
+.modal-enter-to,
+.modal-leave-from {
+  opacity: 1;
+
+  .modal__inner {
+    opacity: 1;
+
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: $md5) {
+  .modal {
+    align-items: flex-end;
+
+    padding: 16px 10px 0;
+
+    &__inner {
+      max-height: 92dvh;
+
+      padding-top: 42px;
+
+      border-bottom-right-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    &__close {
+      top: 12px;
+      right: 14px;
+
+      width: 32px;
+      min-width: 32px;
+      height: 32px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-enter-active,
+  .modal-leave-active,
+  .modal-enter-active .modal__inner,
+  .modal-leave-active .modal__inner {
+    transition: none;
   }
 }
 </style>

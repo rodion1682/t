@@ -1,63 +1,64 @@
 <template>
-  <div class="password-change">
-    <div class="password-change__title _h3">
-      {{ $t('Password Change') }}
-    </div>
+  <form class="password-change" @submit.prevent="submit">
+    <section class="password-change__section">
+      <h2 class="password-change__subtitle">
+        {{ $t('Password change') }}
+      </h2>
 
-    <div class="password-change__inputs">
-      <BaseInput
-        v-model="form.currentPassword"
-        type="password"
-        autocomplete="off"
-        :label="$t('Current password')"
-        :error="errors.currentPassword"
-        :disabled="isSubmitting"
-        class="password-change__input"
-      />
+      <div class="password-change__grid">
+        <BaseInput
+          v-model="form.currentPassword"
+          class="password-change__current"
+          type="password"
+          autocomplete="current-password"
+          :label="$t('Current password')"
+          :placeholder="$t('Current password')"
+          :error="errors.currentPassword"
+          :disabled="isSubmitting"
+        />
 
-      <BaseInput
-        v-model="form.newPassword"
-        type="password"
-        autocomplete="new-password"
-        :label="$t('Create new password:')"
-        :error="errors.newPassword"
-        :disabled="isSubmitting"
-        class="password-change__input"
-      />
+        <BaseInput
+          v-model="form.newPassword"
+          type="password"
+          autocomplete="new-password"
+          :label="$t('New password')"
+          :placeholder="$t('New password')"
+          :error="errors.newPassword"
+          :disabled="isSubmitting"
+        />
 
-      <BaseInput
-        v-model="form.confirmPassword"
-        type="password"
-        autocomplete="new-password"
-        :label="$t('Confirm new Password')"
-        :error="errors.confirmPassword"
-        :disabled="isSubmitting"
-        class="password-change__input"
-      />
-    </div>
+        <BaseInput
+          v-model="form.confirmPassword"
+          type="password"
+          autocomplete="new-password"
+          :label="$t('Confirm new password')"
+          :placeholder="$t('Confirm new password')"
+          :error="errors.confirmPassword"
+          :disabled="isSubmitting"
+        />
+      </div>
+    </section>
 
     <div v-if="generalError" class="password-change__error _text-error">
       {{ generalError }}
     </div>
 
-    <BaseButton
-      type="button"
-      variant="primary"
-      class="password-change__submit"
-      :disabled="isSubmitting"
-      @click="submit"
-    >
-      <span v-if="isSubmitting"> {{ $t('Saving') }}... </span>
-
-      <span v-else>
-        {{ $t('Save') }}
-      </span>
-    </BaseButton>
-  </div>
+    <div class="password-change__actions">
+      <BaseButton
+        class="password-change__save"
+        type="submit"
+        variant="primary"
+        :disabled="isSubmitting"
+      >
+        {{ isSubmitting ? $t('Saving') + '...' : $t('Save') }}
+      </BaseButton>
+    </div>
+  </form>
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+
 import { useI18n } from 'vue-i18n'
 
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -73,7 +74,6 @@ const { t } = useI18n()
 const toast = useToast()
 const userStore = useUserStore()
 
-const isSubmitting = ref(false)
 const generalError = ref('')
 
 const form = reactive({
@@ -88,10 +88,17 @@ const errors = reactive({
   confirmPassword: '',
 })
 
+const isSubmitting = computed(() => userStore.isUpdating)
+
+const normalize = value => {
+  return String(value ?? '')
+}
+
 const clearErrors = () => {
-  errors.currentPassword = ''
-  errors.newPassword = ''
-  errors.confirmPassword = ''
+  Object.keys(errors).forEach(key => {
+    errors[key] = ''
+  })
+
   generalError.value = ''
 }
 
@@ -106,46 +113,71 @@ const resetForm = () => {
 const validate = () => {
   clearErrors()
 
-  if (!form.currentPassword) {
+  const currentPassword = normalize(form.currentPassword)
+
+  const newPassword = normalize(form.newPassword)
+
+  const confirmPassword = normalize(form.confirmPassword)
+
+  if (!currentPassword) {
     errors.currentPassword = t('Current password is required')
   }
 
-  if (!form.newPassword) {
+  if (!newPassword) {
     errors.newPassword = t('New password is required')
-  } else if (String(form.newPassword).length < 5) {
+  } else if (newPassword.length < 5) {
     errors.newPassword = t('Password must contain at least 5 characters')
   }
 
-  if (!form.confirmPassword) {
+  if (!confirmPassword) {
     errors.confirmPassword = t('Please confirm new password')
-  } else if (form.newPassword !== form.confirmPassword) {
+  } else if (newPassword !== confirmPassword) {
     errors.confirmPassword = t('Passwords do not match')
   }
 
-  return !(
-    errors.currentPassword ||
-    errors.newPassword ||
-    errors.confirmPassword
-  )
+  return !Object.values(errors).some(Boolean)
 }
 
-const submit = async () => {
-  if (isSubmitting.value) {
+const applyServerErrors = responseErrors => {
+  if (!responseErrors) {
     return
   }
 
-  if (!validate()) {
+  const errorMap = {
+    cur_password: 'currentPassword',
+    current_password: 'currentPassword',
+    new_password: 'newPassword',
+    password: 'newPassword',
+    repeat_password: 'confirmPassword',
+    password_confirmation: 'confirmPassword',
+  }
+
+  Object.entries(responseErrors).forEach(([key, messages]) => {
+    const field = errorMap[key]
+
+    if (!field) {
+      return
+    }
+
+    errors[field] = Array.isArray(messages)
+      ? messages[0] || ''
+      : String(messages || '')
+  })
+}
+
+const submit = async () => {
+  if (isSubmitting.value || !validate()) {
     return
   }
 
   userStore.clearError?.()
 
   try {
-    isSubmitting.value = true
-
     await userStore.updatePassword({
       cur_password: form.currentPassword,
+
       new_password: form.newPassword,
+
       repeat_password: form.confirmPassword,
     })
 
@@ -155,73 +187,120 @@ const submit = async () => {
 
     emit('success')
   } catch (error) {
-    generalError.value =
-      error?.response?.data?.message ||
-      error?.message ||
-      userStore.error ||
-      t('Failed to update password')
-  } finally {
-    isSubmitting.value = false
+    applyServerErrors(error?.response?.data?.errors)
+
+    const hasFieldError = Object.values(errors).some(Boolean)
+
+    if (!hasFieldError) {
+      generalError.value =
+        error?.response?.data?.message ||
+        error?.message ||
+        userStore.error ||
+        t('Failed to update password')
+    }
   }
 }
 
-watch(
-  () => form.currentPassword,
-  () => {
-    errors.currentPassword = ''
-    generalError.value = ''
-  },
-)
+Object.keys(form).forEach(field => {
+  watch(
+    () => form[field],
+    () => {
+      if (field in errors) {
+        errors[field] = ''
+      }
 
-watch(
-  () => form.newPassword,
-  () => {
-    errors.newPassword = ''
-    generalError.value = ''
-  },
-)
-
-watch(
-  () => form.confirmPassword,
-  () => {
-    errors.confirmPassword = ''
-    generalError.value = ''
-  },
-)
+      generalError.value = ''
+    },
+  )
+})
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .password-change {
   width: 100%;
 
-  &__title {
-    color: var(--primary-color);
-    text-align: center;
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 18);
-    }
-  }
-  &__inputs {
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 20);
-    }
+  &__section {
+    width: 100%;
   }
 
-  &__input {
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 20, 18);
-    }
+  &__subtitle {
+    margin: 0 0 26px;
+
+    @include ibm-14-700;
+
+    color: var(--kelp);
+
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    column-gap: 20px;
+    row-gap: 18px;
+  }
+
+  &__current {
+    grid-column: 1 / -1;
   }
 
   &__error {
-    margin-bottom: 8px;
+    margin-top: 18px;
+
+    text-align: center;
   }
 
-  &__submit {
+  &__actions {
+    display: flex;
+    justify-content: center;
+
+    margin-top: 28px;
+  }
+
+  &__save {
+    width: 180px;
+    min-height: 46px;
+  }
+
+  :deep(.base-input) {
+    min-width: 0;
+  }
+
+  :deep(input) {
+    min-height: 44px;
+
+    border-radius: 999px;
+  }
+}
+
+@media (max-width: $md4) {
+  .password-change {
+    &__grid {
+      grid-template-columns: 1fr;
+    }
+
+    &__current {
+      grid-column: auto;
+    }
+
+    &__subtitle {
+      margin-bottom: 20px;
+    }
+
+    &__actions {
+      margin-top: 24px;
+    }
+
+    &__save {
+      width: 100%;
+    }
   }
 }
 </style>

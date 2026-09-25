@@ -1,57 +1,48 @@
 <template>
   <div class="profile">
     <div class="profile__inner _cnt">
-      <div class="profile__title _h2">
-        {{ pageTitle }}
+      <div class="profile__heading">
+        <div class="profile__eyebrow">
+          {{ $t('Market') }}
+        </div>
+
+        <h1 class="profile__title">
+          {{ pageTitle }}
+        </h1>
       </div>
 
       <div class="profile__nav">
         <BaseButton
           class="profile__button"
-          :variant="activeSection === 'profile' ? 'primary' : 'bordered'"
-          :active="activeSection === 'profile'"
+          :variant="activeSection === 'profile' ? 'primary' : 'white'"
           @click="toggleSection('profile')"
         >
-          {{ $t('Profile Settings') }}
+          {{ $t('Profile settings') }}
         </BaseButton>
 
         <BaseButton
           class="profile__button"
-          :variant="activeSection === 'balance' ? 'primary' : 'bordered'"
-          :active="activeSection === 'balance'"
-          @click="toggleSection('balance')"
-        >
-          {{ $t('My Balance') }}
-        </BaseButton>
-
-        <BaseButton
-          class="profile__button"
-          :variant="
-            activeSection === 'payment-history' ? 'primary' : 'bordered'
-          "
-          :active="activeSection === 'payment-history'"
-          @click="toggleSection('payment-history')"
-        >
-          {{ $t('Transaction History') }}
-        </BaseButton>
-
-        <BaseButton
-          class="profile__button"
-          :variant="activeSection === 'order-history' ? 'primary' : 'bordered'"
-          :active="activeSection === 'order-history'"
+          :variant="activeSection === 'order-history' ? 'primary' : 'white'"
           @click="toggleSection('order-history')"
         >
-          {{ $t('Order History') }}
+          {{ $t('Order history') }}
+        </BaseButton>
+
+        <BaseButton
+          class="profile__button"
+          :variant="activeSection === 'payment-history' ? 'primary' : 'white'"
+          @click="toggleSection('payment-history')"
+        >
+          {{ $t('Transaction history') }}
         </BaseButton>
 
         <BaseButton
           v-if="isOfferEnabled"
           class="profile__button"
-          :variant="activeSection === 'offers' ? 'primary' : 'bordered'"
-          :active="activeSection === 'offers'"
+          :variant="activeSection === 'offers' ? 'primary' : 'white'"
           @click="toggleSection('offers')"
         >
-          {{ $t('Offer History') }}
+          {{ $t('Offer history') }}
         </BaseButton>
       </div>
 
@@ -62,6 +53,7 @@
           :offers-enabled="isOfferEnabled"
           @password-change="openPasswordModal"
           @withdraw="openWithdrawModal"
+          @delete-account="openDeleteModal"
         />
 
         <div class="profile__body">
@@ -70,8 +62,6 @@
           <OrderHistory v-else-if="activeSection === 'order-history'" />
 
           <MyOffers v-else-if="activeSection === 'offers' && isOfferEnabled" />
-
-          <MyBalance v-else-if="activeSection === 'balance'" />
 
           <PersonalInfo v-else />
         </div>
@@ -89,6 +79,11 @@
       @close="closeWithdrawModal"
     />
 
+    <DeleteAccountModal
+      v-model:show="isDeleteModalOpen"
+      @close="closeDeleteModal"
+    />
+
     <PaymentModal
       :show="modalStore.isOpen('payment')"
       :mode="modalStore.getData('payment')?.mode || 'offer'"
@@ -101,20 +96,21 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
 import ContactInfoModal from '@/components/modals/sellSkins/ContactInfoModal.vue'
+import PaymentModal from '@/components/modals/sellSkins/PaymentModal.vue'
 
+import { useModalStore } from '@/stores/modal'
 import { useSettingsStore } from '@/stores/settings'
 
 import UserInfo from './components/UserInfo.vue'
-
-import PaymentModal from '@/components/modals/sellSkins/PaymentModal.vue'
-import { useModalStore } from '@/stores/modal'
+import DeleteAccountModal from './modals/DeleteAccountModal.vue'
 import PasswordChangeModal from './modals/PasswordChangeModal.vue'
-import MyBalance from './tabs/MyBalance.vue'
+
 import MyOffers from './tabs/MyOffers.vue'
 import OrderHistory from './tabs/OrderHistory.vue'
 import PaymentHistory from './tabs/PaymentHistory.vue'
@@ -126,51 +122,53 @@ const route = useRoute()
 const router = useRouter()
 
 const settingsStore = useSettingsStore()
+
 const modalStore = useModalStore()
+
 const activeSection = ref('profile')
 
 const isPasswordModalOpen = ref(false)
 
 const isWithdrawModalOpen = ref(false)
 
+const isDeleteModalOpen = ref(false)
+
 const isOfferEnabled = computed(() => {
   return settingsStore.isOfferEnabled
 })
 
 const pageTitle = computed(() => {
-  if (activeSection.value === 'profile') {
-    return t('Profile Settings')
-  }
-
-  if (activeSection.value === 'balance') {
-    return t('My Balance')
+  if (activeSection.value === 'order-history') {
+    return t('Order history')
   }
 
   if (activeSection.value === 'payment-history') {
-    return t('Transaction History')
-  }
-
-  if (activeSection.value === 'order-history') {
-    return t('Order History')
+    return t('Transaction history')
   }
 
   if (activeSection.value === 'offers' && isOfferEnabled.value) {
-    return t('Offer History')
+    return t('Offer history')
   }
 
-  return ''
+  return t('Profile')
 })
 
-const sectionPaths = {
-  profile: '/account/profile',
+const sectionRoutes = {
+  profile: 'account-profile',
 
-  balance: '/account/balance',
+  'payment-history': 'account-payment-history',
 
-  'payment-history': '/account/payment-history',
+  'order-history': 'account-order-history',
 
-  'order-history': '/account/order-history',
+  offers: 'account-offers',
+}
 
-  offers: '/account/offers',
+const closeAccountModals = () => {
+  isPasswordModalOpen.value = false
+
+  isWithdrawModalOpen.value = false
+
+  isDeleteModalOpen.value = false
 }
 
 const toggleSection = section => {
@@ -178,13 +176,19 @@ const toggleSection = section => {
     return
   }
 
-  activeSection.value = section
+  const routeName = sectionRoutes[section]
 
-  const path = sectionPaths[section]
-
-  if (path && route.path !== path) {
-    router.push(path)
+  if (!routeName) {
+    return
   }
+
+  if (route.name === routeName) {
+    return
+  }
+
+  router.push({
+    name: routeName,
+  })
 }
 
 const syncActiveSection = path => {
@@ -204,14 +208,10 @@ const syncActiveSection = path => {
     if (isOfferEnabled.value) {
       activeSection.value = 'offers'
     } else {
-      router.replace('/account/profile')
+      router.replace({
+        name: 'account-profile',
+      })
     }
-
-    return
-  }
-
-  if (path.includes('/balance')) {
-    activeSection.value = 'balance'
 
     return
   }
@@ -220,7 +220,7 @@ const syncActiveSection = path => {
 }
 
 const openPasswordModal = () => {
-  isWithdrawModalOpen.value = false
+  closeAccountModals()
 
   isPasswordModalOpen.value = true
 }
@@ -234,13 +234,23 @@ const openWithdrawModal = () => {
     return
   }
 
-  isPasswordModalOpen.value = false
+  closeAccountModals()
 
   isWithdrawModalOpen.value = true
 }
 
 const closeWithdrawModal = () => {
   isWithdrawModalOpen.value = false
+}
+
+const openDeleteModal = () => {
+  closeAccountModals()
+
+  isDeleteModalOpen.value = true
+}
+
+const closeDeleteModal = () => {
+  isDeleteModalOpen.value = false
 }
 
 watch(
@@ -255,101 +265,145 @@ watch(
 
 watch(isOfferEnabled, enabled => {
   if (!enabled && activeSection.value === 'offers') {
-    router.replace('/account/profile')
+    router.replace({
+      name: 'account-profile',
+    })
   }
 })
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .profile {
-  position: relative;
-
   display: flex;
   flex: 1 1 100%;
   flex-direction: column;
-  align-items: center;
 
-  @include adaptiveValue('padding-top', 20, 25);
+  width: 100%;
 
-  @include adaptiveValue('padding-bottom', 130, 25);
+  @include adaptiveValue('padding-top', 58, 28);
+  @include adaptiveValue('padding-bottom', 140, 60);
 
   &__inner {
     width: 100%;
+  }
 
-    align-self: center;
+  &__heading {
+    margin-bottom: 28px;
+  }
 
-    margin-top: auto;
-    margin-bottom: auto;
+  &__eyebrow {
+    margin-bottom: 12px;
+
+    @include ibm-12-700;
+
+    color: var(--makara);
+
+    text-transform: uppercase;
   }
 
   &__title {
-    text-align: center;
-    text-transform: uppercase;
+    margin: 0;
 
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 18);
-    }
+    @include sg-40-700;
+
+    color: var(--cod-gray);
+
+    text-transform: uppercase;
   }
 
   &__nav {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
 
-    @include adaptiveValue('gap', 20, 4);
+    gap: 10px;
 
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 20);
-    }
-
-    @media (max-width: $md2) {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    @media (max-width: $md4) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    @media (max-width: $md7) {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
-    }
+    margin-bottom: 34px;
   }
 
   &__button {
-    min-width: 0;
+    @include adaptiveValue('padding-top', 12, 6);
+    @include adaptiveValue('padding-bottom', 12, 6);
+    @include adaptiveValue('padding-left', 24, 15);
+    @include adaptiveValue('padding-right', 24, 15);
+    width: fit-content;
+    @include adaptiveValue('min-height', 50, 40);
   }
 
   &__content {
-    width: 100%;
+    display: grid;
+    grid-template-columns:
+      minmax(250px, 310px)
+      minmax(0, 1fr);
 
-    @media (min-width: $md2) {
-      display: flex;
+    align-items: start;
 
-      @include adaptiveValue('gap', 20, 10);
-    }
+    @include adaptiveValue('gap', 34, 10);
   }
 
   &__info {
-    height: fit-content;
-
-    flex: 0 1 30%;
     min-width: 0;
-
-    @media (max-width: $md2) {
-      &:not(:last-child) {
-        margin-bottom: 20px;
-      }
-    }
   }
 
   &__body {
-    display: flex;
-    flex: 0 1 70%;
-    flex-direction: column;
-
     min-width: 0;
+  }
+}
+
+@media (max-width: $md2) {
+  .profile {
+    &__content {
+      grid-template-columns:
+        260px
+        minmax(0, 1fr);
+
+      gap: 20px;
+    }
+  }
+}
+
+@media (max-width: $md3) {
+  .profile {
+    &__heading {
+      margin-bottom: 22px;
+    }
+
+    &__nav {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+
+      margin-bottom: 24px;
+    }
+
+    &__button {
+      width: 100%;
+      min-width: 0;
+    }
+
+    &__content {
+      display: flex;
+      flex-direction: column;
+
+      gap: 20px;
+    }
+
+    &__info,
+    &__body {
+      width: 100%;
+    }
+  }
+}
+
+@media (max-width: $md5) {
+  .profile {
+    &__nav {
+      grid-template-columns: 1fr;
+    }
   }
 }
 </style>

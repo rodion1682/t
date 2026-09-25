@@ -1,51 +1,63 @@
 <template>
-  <div class="info">
-    <div class="info__top">
-      <div class="info__content">
-        <div class="info__icon-box">
-          <SvgIcon class="info__icon" :icon="UserIcon" />
-        </div>
-
-        <div class="info__about">
-          <div class="info__name">
-            {{ fullName }}
-          </div>
-
-          <div class="info__email">
-            {{ userEmail }}
-          </div>
-        </div>
+  <aside class="info">
+    <div class="info__user">
+      <div class="info__icon-box">
+        <SvgIcon class="info__icon" :icon="UserIcon" />
       </div>
 
-      <BaseButton
-        class="info__log-out"
-        variant="transparent"
-        @click="handleLogout"
-      >
-        {{ $t('Log Out') }}
-      </BaseButton>
+      <div class="info__about">
+        <div class="info__name">
+          {{ displayName }}
+        </div>
+
+        <div class="info__email">
+          {{ userEmail }}
+        </div>
+      </div>
     </div>
 
     <div class="info__balance">
       <SvgIcon :icon="WalletIcon" class="info__balance-icon" />
 
       <PriceFormatter
-        size="size-32"
-        skip-conversion
-        reverse
-        :price="userBalance"
         class="info__balance-number"
+        size="sg-32"
+        :price="userBalanceFiat"
+        skip-conversion
+        is-currency
+        reverse
       />
     </div>
 
-    <BaseButton
-      v-if="showActionButton"
-      class="info__button"
-      @click="handleAction"
-    >
-      {{ actionButtonText }}
-    </BaseButton>
-  </div>
+    <div class="info__actions">
+      <BaseButton
+        class="info__button info__button_top-up"
+        variant="primary"
+        @click="handleTopUp"
+      >
+        {{ $t('Top Up Balance') }}
+      </BaseButton>
+
+      <BaseButton
+        v-if="canWithdraw"
+        class="info__button info__button_withdraw"
+        variant="bordered"
+        @click="handleWithdraw"
+      >
+        {{ $t('Withdraw') }}
+      </BaseButton>
+    </div>
+
+    <div class="info__footer">
+      <button type="button" class="info__link" @click="handlePasswordChange">
+        {{ $t('Change password') }}
+      </button>
+
+      <button type="button" class="info__link" @click="handleDeleteAccount">
+        {{ $t('Delete account') }}
+      </button>
+    </div>
+  </aside>
 </template>
 
 <script setup>
@@ -59,9 +71,6 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import { UserIcon, WalletIcon } from '@/components/icons'
 import SvgIcon from '@/components/icons/SvgIcon.vue'
 
-import { useToast } from '@/composables/useToast'
-
-import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 
@@ -70,179 +79,134 @@ const props = defineProps({
     type: String,
     default: 'profile',
   },
+
   offersEnabled: {
     type: Boolean,
     default: false,
   },
 })
 
-const emit = defineEmits(['password-change', 'withdraw'])
+const emit = defineEmits(['password-change', 'withdraw', 'delete-account'])
 
 const router = useRouter()
 const { t } = useI18n()
-const toast = useToast()
 
 const userStore = useUserStore()
-const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 
-const { userEmail, fullName, userBalance } = storeToRefs(userStore)
+const { fullName, userEmail, userBalanceFiat } = storeToRefs(userStore)
 
-const isProfileSection = computed(() => {
-  return props.activeSection === 'profile'
+const displayName = computed(() => {
+  return fullName.value || t('Name Surname')
 })
 
 const sepaEnabled = computed(() => {
   return Boolean(settingsStore.settings?.payout_methods?.sepa)
 })
 
-const showActionButton = computed(() => {
-  if (isProfileSection.value) {
-    return true
-  }
-
+const canWithdraw = computed(() => {
   return props.offersEnabled && sepaEnabled.value
 })
 
-const actionButtonText = computed(() => {
-  if (isProfileSection.value) {
-    return t('Password Change')
-  }
+const handleTopUp = () => {
+  router.push({
+    name: 'account-balance',
+  })
+}
 
-  return t('Withdraw')
-})
-
-const handleAction = () => {
-  if (isProfileSection.value) {
-    emit('password-change')
-    return
-  }
-
-  if (!sepaEnabled.value) {
+const handleWithdraw = () => {
+  if (!canWithdraw.value) {
     return
   }
 
   emit('withdraw')
 }
 
-const handleLogout = async () => {
-  try {
-    await authStore.logout()
+const handlePasswordChange = () => {
+  emit('password-change')
+}
 
-    await router.push({
-      name: 'HomePage',
-    })
-  } catch (error) {
-    console.error(error)
-
-    toast.error(t('Failed to logout'))
-  }
+const handleDeleteAccount = () => {
+  emit('delete-account')
 }
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
-@use '@/assets/styles/media' as *;
 @use '@/assets/styles/fonts' as *;
+@use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .info {
-  @include adaptiveValue('padding', 40, 10);
+  width: 100%;
 
-  background-color: var(--bg-primary-color);
+  @include adaptiveValue('padding', 30, 15);
 
-  border: 1px solid var(--border-primary-color);
+  @include adaptiveValue('border-radius', 39, 20);
 
-  @include adaptiveValue('border-radius', 20, 10);
+  background: var(--double-spanish-white);
 
-  &__top {
+  &__user {
     display: flex;
+    flex-direction: column;
     align-items: flex-start;
-    justify-content: space-between;
-
-    gap: 20px;
-
-    min-width: 0;
-
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 70, 20);
-    }
-  }
-
-  &__content {
-    display: flex;
-    flex: 1 1 0;
-
-    min-width: 0;
-
-    @include adaptiveValue('gap', 20, 10);
   }
 
   &__icon-box {
-    flex: 0 0 auto;
-
-    @include adaptiveValue('width', 55, 40);
-    @include adaptiveValue('height', 55, 40);
-    @include adaptiveValue('border-radius', 22, 10);
-
     display: flex;
     align-items: center;
     justify-content: center;
+    width: fit-content;
+    @include adaptiveValue('min-width', 60, 45);
+    @include adaptiveValue('height', 60, 45);
 
-    background-color: var(--hint-primary-color);
+    margin-bottom: 16px;
 
-    color: var(--primary-color);
+    border-radius: 18px;
+
+    background: var(--hemlock);
+
+    color: var(--janna);
   }
 
   &__icon {
-    min-width: 15px;
-    width: 15px;
-    height: 15px;
+    @include adaptiveValue('min-width', 28, 20);
+    @include adaptiveValue('height', 28, 20);
   }
 
   &__about {
-    flex: 1 1 0;
-
-    min-width: 0;
-
-    overflow: hidden;
-  }
-
-  &__name,
-  &__email {
-    display: block;
-
     width: 100%;
     min-width: 0;
-
-    overflow: hidden;
-
-    white-space: nowrap;
-    text-overflow: ellipsis;
   }
 
   &__name {
-    @include adaptiveValue('font-size', 20, 18);
+    overflow: hidden;
 
-    line-height: 120%;
+    width: 100%;
 
-    color: var(--primary-color);
+    margin-bottom: 7px;
 
+    @include ibm-16-700;
+
+    color: var(--cod-gray);
+    letter-spacing: 0px;
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
     &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 12, 10);
+      @include adaptiveValue('margin-bottom', 5, 3);
     }
   }
 
   &__email {
-    color: var(--secondary-color);
+    overflow: hidden;
 
-    line-height: 120%;
-  }
+    width: 100%;
 
-  &__log-out {
-    flex: 0 0 auto;
+    @include ibm-14-400;
 
     white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   &__balance {
@@ -250,30 +214,135 @@ const handleLogout = async () => {
     align-items: center;
     justify-content: center;
 
-    color: var(--primary-color);
+    gap: 14px;
 
-    @include adaptiveValue('gap', 19, 10);
+    @include adaptiveValue('margin-top', 24, 18);
+    @include adaptiveValue('margin-bottom', 24, 18);
 
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 70, 20);
-    }
+    color: var(--cod-gray);
   }
 
   &__balance-icon {
-    @include adaptiveValue('min-width', 32, 20);
-    @include adaptiveValue('height', 32, 20);
+    flex: 0 0 auto;
+
+    @include adaptiveValue('min-width', 32, 24);
+    @include adaptiveValue('height', 32, 24);
+
+    color: var(--makara);
   }
 
   &__balance-number {
     min-width: 0;
+
+    color: var(--cod-gray);
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+
+    @include adaptiveValue('gap', 24, 10);
   }
 
   &__button {
     width: 100%;
+    @include adaptiveValue('min-height', 50, 40);
 
-    @media (max-width: $md2) {
-      max-width: 346px;
-      margin: 0 auto;
+    border-radius: 999px;
+
+    &_top-up {
+      text-transform: uppercase;
+    }
+
+    &_withdraw {
+      text-transform: uppercase;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 16px;
+
+    margin-top: 22px;
+  }
+
+  &__link {
+    padding: 0;
+
+    border: 0;
+
+    background: transparent;
+
+    @include ibm-11-700;
+
+    color: var(--rope);
+
+    cursor: pointer;
+
+    transition:
+      color 0.2s ease,
+      opacity 0.2s ease;
+
+    &:hover {
+      color: var(--copper);
+    }
+
+    &:focus-visible {
+      outline: 1px solid var(--copper);
+      outline-offset: 4px;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+
+      pointer-events: none;
+    }
+  }
+}
+
+@media (max-width: $md2) {
+  .info {
+    &__balance {
+      margin-top: 26px;
+      margin-bottom: 24px;
+    }
+  }
+}
+
+@media (max-width: $md3) {
+  .info {
+    max-width: none;
+
+    &__user {
+      align-items: center;
+
+      text-align: center;
+    }
+
+    &__about {
+      max-width: 400px;
+    }
+
+    &__footer {
+      justify-content: center;
+
+      gap: 32px;
+    }
+  }
+}
+
+@media (max-width: $md5) {
+  .info {
+    border-radius: 24px;
+
+    &__footer {
+      align-items: flex-start;
+      flex-direction: column;
+
+      gap: 12px;
     }
   }
 }

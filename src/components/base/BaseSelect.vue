@@ -2,14 +2,16 @@
   <div
     ref="rootRef"
     class="base-select-wrap"
-    :class="{ 'is-disabled': disabled || loading }"
+    :class="{
+      'is-disabled': disabled || loading,
+    }"
   >
     <div
       v-if="label"
       class="base-select__field-label"
       :class="{ 'has-error': !!error }"
     >
-      {{ label }}:
+      {{ label }}
     </div>
 
     <div
@@ -20,6 +22,7 @@
       role="combobox"
       :aria-expanded="isOpen"
       :aria-disabled="disabled || loading"
+      :aria-controls="`${id}-listbox`"
       @click="toggle"
       @keydown="onKeydown"
     >
@@ -34,7 +37,7 @@
           </span>
         </template>
 
-        <span v-else-if="placeholder" class="base-select__placeholder">
+        <span v-else class="base-select__placeholder">
           {{ placeholder }}
         </span>
       </div>
@@ -51,18 +54,17 @@
       </span>
     </div>
 
-    <Transition name="select-fade">
-      <div
-        v-show="isOpen"
-        ref="dropdownRef"
-        class="base-select__dropdown"
-        :class="{ overflow: hasOverflow }"
-        role="listbox"
-      >
-        <div ref="listRef" class="base-select__options">
+    <Transition name="select-dropdown">
+      <div v-if="isOpen" ref="dropdownRef" class="base-select__dropdown">
+        <div
+          :id="`${id}-listbox`"
+          ref="listRef"
+          class="base-select__options"
+          role="listbox"
+        >
           <button
             v-for="(option, index) in options"
-            :key="String(option[optionValue])"
+            :key="getOptionKey(option, index)"
             type="button"
             class="base-select__option"
             :class="{
@@ -75,14 +77,16 @@
             @mouseenter="selectedIndex = index"
             @click.stop="selectOption(option)"
           >
-            <SvgIcon
-              v-if="option.icon"
-              :icon="option.icon"
-              class="base-select__option-icon"
-            />
+            <span v-if="option?.icon" class="base-select__option-icon-wrap">
+              <SvgIcon :icon="option.icon" class="base-select__option-icon" />
+            </span>
 
             <span class="base-select__option-label">
-              {{ option[optionLabel] }}
+              {{ getOptionLabel(option) }}
+            </span>
+
+            <span v-if="isSelected(option)" class="base-select__selected-mark">
+              ✓
             </span>
           </button>
 
@@ -110,49 +114,59 @@ const props = defineProps({
     type: [String, Number],
     default: '',
   },
+
   options: {
     type: Array,
     default: () => [],
   },
+
   optionLabel: {
     type: String,
     default: 'label',
   },
+
   optionValue: {
     type: String,
     default: 'value',
   },
+
   placeholder: {
     type: String,
     default: '',
   },
+
   disabled: {
     type: Boolean,
     default: false,
   },
+
   loading: {
     type: Boolean,
     default: false,
   },
+
   label: {
     type: String,
     default: '',
   },
+
   error: {
     type: String,
     default: '',
   },
+
   regular: {
     type: Boolean,
     default: false,
   },
+
   id: {
     type: String,
     default: () => `select-${Math.random().toString(36).substring(2, 9)}`,
   },
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'change'])
 
 const rootRef = ref(null)
 const dropdownRef = ref(null)
@@ -160,10 +174,6 @@ const listRef = ref(null)
 
 const isOpen = ref(false)
 const selectedIndex = ref(-1)
-const hasOverflow = ref(false)
-
-let resizeObserver = null
-let mutationObserver = null
 
 const selectedOption = computed(() => {
   if (
@@ -174,15 +184,11 @@ const selectedOption = computed(() => {
     return null
   }
 
-  return (
-    props.options.find(option => {
-      return String(option?.[props.optionValue]) === String(props.modelValue)
-    }) || null
-  )
+  return props.options.find(option => isSelected(option)) || null
 })
 
 const hasValue = computed(() => {
-  return !!selectedOption.value
+  return selectedOption.value !== null
 })
 
 const displayValue = computed(() => {
@@ -190,7 +196,7 @@ const displayValue = computed(() => {
     return ''
   }
 
-  return String(selectedOption.value?.[props.optionLabel] ?? '')
+  return getOptionLabel(selectedOption.value)
 })
 
 const containerClasses = computed(() => ({
@@ -201,21 +207,42 @@ const containerClasses = computed(() => ({
   regular: props.regular,
 }))
 
-const isSelected = option => {
-  return String(option?.[props.optionValue]) === String(props.modelValue)
-}
-
-const updateOverflowState = async () => {
-  await nextTick()
-
-  const dropdown = dropdownRef.value
-
-  if (!dropdown || !isOpen.value) {
-    hasOverflow.value = false
-    return
+const getOptionValue = option => {
+  if (option === null || option === undefined) {
+    return ''
   }
 
-  hasOverflow.value = dropdown.scrollHeight > dropdown.clientHeight + 1
+  if (typeof option !== 'object') {
+    return option
+  }
+
+  return option[props.optionValue]
+}
+
+const getOptionLabel = option => {
+  if (option === null || option === undefined) {
+    return ''
+  }
+
+  if (typeof option !== 'object') {
+    return String(option)
+  }
+
+  return String(option[props.optionLabel] ?? '')
+}
+
+const getOptionKey = (option, index) => {
+  const value = getOptionValue(option)
+
+  if (value === '' || value === null || value === undefined) {
+    return index
+  }
+
+  return String(value)
+}
+
+const isSelected = option => {
+  return String(getOptionValue(option)) === String(props.modelValue)
 }
 
 const scrollActiveIntoView = async () => {
@@ -243,17 +270,14 @@ const open = async () => {
 
   const index = props.options.findIndex(option => isSelected(option))
 
-  selectedIndex.value = index >= 0 ? index : props.options.length ? 0 : -1
+  selectedIndex.value = index >= 0 ? index : 0
 
-  await nextTick()
-  await updateOverflowState()
   await scrollActiveIntoView()
 }
 
 const close = () => {
   isOpen.value = false
   selectedIndex.value = -1
-  hasOverflow.value = false
 }
 
 const toggle = async () => {
@@ -270,33 +294,37 @@ const toggle = async () => {
 }
 
 const selectOption = option => {
-  if (!option) {
+  if (option === null || option === undefined) {
     return
   }
 
-  emit('update:modelValue', option[props.optionValue])
+  const value = getOptionValue(option)
+
+  emit('update:modelValue', value)
+
+  emit('change', value)
 
   close()
 }
 
-const onClickOutside = event => {
-  if (!rootRef.value) {
+const moveSelection = async direction => {
+  if (!props.options.length) {
     return
   }
 
-  if (!rootRef.value.contains(event.target)) {
-    close()
-  }
-}
-
-const onKeydownGlobal = event => {
   if (!isOpen.value) {
+    await open()
     return
   }
 
-  if (event.key === 'Escape') {
-    close()
-  }
+  const nextIndex = selectedIndex.value + direction
+
+  selectedIndex.value = Math.max(
+    0,
+    Math.min(nextIndex, props.options.length - 1),
+  )
+
+  await scrollActiveIntoView()
 }
 
 const onKeydown = async event => {
@@ -304,62 +332,60 @@ const onKeydown = async event => {
     return
   }
 
-  switch (event.key) {
-    case 'Enter':
-    case ' ':
-      event.preventDefault()
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
 
-      if (!isOpen.value) {
-        await open()
-        return
-      }
+    if (!isOpen.value) {
+      await open()
+      return
+    }
 
-      if (selectedIndex.value >= 0 && props.options[selectedIndex.value]) {
-        selectOption(props.options[selectedIndex.value])
-      }
+    if (selectedIndex.value >= 0 && props.options[selectedIndex.value]) {
+      selectOption(props.options[selectedIndex.value])
+    }
 
-      break
+    return
+  }
 
-    case 'ArrowDown':
-      event.preventDefault()
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
 
-      if (!isOpen.value) {
-        await open()
-        return
-      }
+    await moveSelection(1)
 
-      selectedIndex.value = Math.min(
-        selectedIndex.value + 1,
-        props.options.length - 1,
-      )
+    return
+  }
 
-      await scrollActiveIntoView()
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
 
-      break
+    await moveSelection(-1)
 
-    case 'ArrowUp':
-      event.preventDefault()
+    return
+  }
 
-      if (!isOpen.value) {
-        await open()
-        return
-      }
+  if (event.key === 'Escape') {
+    event.preventDefault()
 
-      selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+    close()
 
-      await scrollActiveIntoView()
+    return
+  }
 
-      break
-
-    case 'Escape':
-      event.preventDefault()
-      close()
-      break
+  if (event.key === 'Tab') {
+    close()
   }
 }
 
-const onResize = () => {
-  updateOverflowState()
+const onClickOutside = event => {
+  if (rootRef.value && !rootRef.value.contains(event.target)) {
+    close()
+  }
+}
+
+const onGlobalKeydown = event => {
+  if (isOpen.value && event.key === 'Escape') {
+    close()
+  }
 }
 
 watch(
@@ -382,9 +408,9 @@ watch(
 
 watch(
   () => props.options,
-  async () => {
-    if (isOpen.value) {
-      await updateOverflowState()
+  () => {
+    if (isOpen.value && !props.options.length) {
+      close()
     }
   },
   {
@@ -392,53 +418,45 @@ watch(
   },
 )
 
+watch(
+  () => props.modelValue,
+  async () => {
+    if (!isOpen.value) {
+      return
+    }
+
+    const index = props.options.findIndex(option => isSelected(option))
+
+    if (index >= 0) {
+      selectedIndex.value = index
+
+      await scrollActiveIntoView()
+    }
+  },
+)
+
 onMounted(() => {
   document.addEventListener('mousedown', onClickOutside)
 
-  document.addEventListener('keydown', onKeydownGlobal)
-
-  window.addEventListener('resize', onResize)
-
-  if (window.ResizeObserver && dropdownRef.value) {
-    resizeObserver = new ResizeObserver(() => {
-      updateOverflowState()
-    })
-
-    resizeObserver.observe(dropdownRef.value)
-  }
-
-  if (window.MutationObserver && listRef.value) {
-    mutationObserver = new MutationObserver(() => {
-      updateOverflowState()
-    })
-
-    mutationObserver.observe(listRef.value, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    })
-  }
+  document.addEventListener('keydown', onGlobalKeydown)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', onClickOutside)
 
-  document.removeEventListener('keydown', onKeydownGlobal)
-
-  window.removeEventListener('resize', onResize)
-
-  resizeObserver?.disconnect()
-  mutationObserver?.disconnect()
+  document.removeEventListener('keydown', onGlobalKeydown)
 })
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .base-select-wrap {
   position: relative;
+
   width: 100%;
 
   &.is-disabled {
@@ -449,42 +467,44 @@ onBeforeUnmount(() => {
 .base-select {
   position: relative;
 
-  width: 100%;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
 
-  gap: 10px;
+  width: 100%;
+
+  gap: 12px;
 
   @include adaptiveValue('min-height', 50, 40);
+
   @include adaptiveValue('padding-left', 18, 15);
+
   @include adaptiveValue('padding-right', 18, 15);
-  @include adaptiveValue('border-radius', 20, 10);
 
-  border: 1px solid var(--border-primary-color);
+  @include adaptiveValue('border-radius', 28, 20);
 
-  background-color: var(--bg-secondary-color);
-  color: var(--primary-color);
+  border: 1px solid transparent;
+
+  background-color: var(--merino);
+
+  box-shadow: inset 0 0 0 2px #dcd3c4;
 
   outline: none;
+
   cursor: pointer;
 
   transition:
-    border-color 0.3s ease,
+    box-shadow 0.3s ease,
     background-color 0.3s ease,
-    color 0.3s ease;
+    opacity 0.3s ease;
 
-  &.is-open {
-    border-color: var(--hint-primary-color);
-
-    .base-select__caret {
-      color: var(--hint-primary-color);
-    }
+  &.is-open,
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--copper);
   }
 
   &.has-error {
-    border-color: var(--error-color);
+    box-shadow: inset 0 0 0 2px var(--hairy-heath);
   }
 
   &.is-disabled {
@@ -492,56 +512,48 @@ onBeforeUnmount(() => {
     cursor: not-allowed;
   }
 
-  &:focus-visible {
-    border-color: var(--hint-primary-color);
-  }
-
   @media (any-hover: hover) {
     &:hover:not(.is-disabled) {
-      border-color: var(--hint-primary-color);
-
-      .base-select__caret {
-        color: var(--primary-color);
-      }
+      box-shadow: inset 0 0 0 2px var(--copper);
     }
   }
 
   &__field-label {
-    font-family: var(--font-inter);
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 120%;
+    margin-bottom: 8.7px;
 
-    color: var(--secondary-color);
+    font-family: var(--font-ibm-plex);
+
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 21.7px;
+
+    color: var(--soya-bean);
 
     transition: color 0.3s ease;
 
-    &:not(:last-child) {
-      margin-bottom: 5px;
-    }
-
     &.has-error {
-      color: var(--error-color);
+      color: var(--hairy-heath);
     }
   }
 
   &__value {
-    flex: 1 1 auto;
-    min-width: 0;
-
     display: flex;
+    flex: 1 1 auto;
     align-items: center;
 
-    gap: 8px;
+    min-width: 0;
+
+    gap: 9px;
 
     overflow: hidden;
 
-    font-family: var(--font-inter);
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 120%;
+    font-family: var(--font-ibm-plex);
 
-    color: var(--primary-color);
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.25;
+
+    color: var(--cod-gray);
   }
 
   &__value-text,
@@ -557,58 +569,55 @@ onBeforeUnmount(() => {
   }
 
   &__placeholder {
-    color: var(--secondary-color);
+    font-size: 16px;
+
+    color: var(--zorba);
   }
 
   &__icon-wrapper {
-    flex: 0 0 auto;
-
-    width: 22px;
-    min-width: 22px;
-    height: 22px;
-
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
+
+    width: 20px;
+    height: 20px;
   }
 
   &__icon {
     width: 18px;
-    min-width: 18px;
     height: 18px;
 
-    color: var(--primary-color);
+    color: var(--kelp);
   }
 
   &__caret {
-    pointer-events: none;
-
-    flex: 0 0 auto;
-
-    width: 15px;
-    min-width: 15px;
-    height: 8px;
-
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
 
-    color: var(--hint-primary-color);
+    width: 20px;
+    height: 20px;
 
-    transition: color 0.3s ease;
+    pointer-events: none;
+
+    color: var(--kelp);
   }
 
   &__caret-icon {
-    width: 15px;
-    min-width: 15px;
+    width: 14px;
     height: 8px;
 
     color: inherit;
 
-    transition: transform 0.3s ease;
+    transition:
+      transform 0.3s ease,
+      color 0.3s ease;
 
     :deep(svg) {
       display: block;
+
       width: 100%;
       height: 100%;
     }
@@ -619,39 +628,46 @@ onBeforeUnmount(() => {
 
     &.is-open {
       transform: rotate(180deg);
+
+      color: var(--copper);
     }
   }
 
   &__spinner {
     width: 16px;
-    min-width: 16px;
     height: 16px;
 
-    border: 2px solid rgba(#f0eae0, 20%);
-    border-top-color: var(--hint-primary-color);
+    border: 2px solid var(--cod-gray-16);
+
+    border-top-color: var(--copper);
+
     border-radius: 50%;
 
-    animation: spin 0.8s linear infinite;
+    animation: select-spin 0.8s linear infinite;
   }
 
   &__dropdown {
     position: absolute;
+    z-index: 30;
 
-    top: calc(100% + 3px);
+    top: calc(100% + 8px);
     left: 0;
-
-    z-index: var(--header-z-index);
 
     width: 100%;
     min-width: 100%;
-    max-height: 300px;
+    max-height: 280px;
 
-    padding: 10px;
+    padding: 7px;
 
-    @include adaptiveValue('border-radius', 20, 10);
+    border: 1px solid var(--double-spanish-white);
 
-    background-color: var(--bg-secondary-color);
-    border: 1px solid var(--border-primary-color);
+    border-radius: 20px;
+
+    background: var(--merino);
+
+    box-shadow:
+      0 16px 40px rgba(32, 30, 29, 0.14),
+      0 4px 12px rgba(32, 30, 29, 0.07);
 
     overflow-x: hidden;
     overflow-y: auto;
@@ -659,24 +675,26 @@ onBeforeUnmount(() => {
     transform-origin: top;
 
     scrollbar-width: thin;
-    scrollbar-color: var(--hint-primary-color) var(--bg-secondary-color);
+    scrollbar-color: var(--copper) var(--janna);
 
     &::-webkit-scrollbar {
-      width: 4px;
+      width: 6px;
     }
 
     &::-webkit-scrollbar-track {
-      background-color: var(--bg-secondary-color);
-    }
+      background: var(--janna);
 
-    &::-webkit-scrollbar-thumb {
-      background-color: var(--hint-primary-color);
       border-radius: 10px;
     }
 
-    &.overflow {
-      border-top-right-radius: 10px;
-      border-bottom-right-radius: 10px;
+    &::-webkit-scrollbar-thumb {
+      background: var(--copper);
+
+      border-radius: 10px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: var(--tuscany);
     }
   }
 
@@ -684,74 +702,92 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
 
-    gap: 4px;
+    gap: 3px;
   }
 
   &__option {
-    width: 100%;
-    min-height: 40px;
-
     display: flex;
     align-items: center;
 
+    width: 100%;
+    min-height: 42px;
+
     gap: 10px;
 
-    padding: 10px;
-
-    @include adaptiveValue('border-radius', 20, 10);
+    padding: 9px 12px;
 
     border: 1px solid transparent;
 
-    background-color: transparent;
-    color: var(--primary-color);
+    border-radius: 14px;
 
-    font-family: var(--font-inter);
-    font-size: 16px;
+    background: transparent;
+
+    font-family: var(--font-ibm-plex);
+
+    font-size: 14px;
     font-weight: 400;
-    line-height: 120%;
+    line-height: 1.25;
+
+    color: var(--cod-gray);
 
     text-align: left;
 
     cursor: pointer;
 
     transition:
-      color 0.3s ease,
-      background-color 0.3s ease,
-      border-color 0.3s ease;
-
-    &.is-selected {
-      background-color: var(--bg-primary-color);
-      border-color: var(--hint-primary-color);
-      color: var(--primary-color);
-    }
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
 
     &.is-active:not(.is-selected) {
-      background-color: var(--bg-primary-color);
-      border-color: var(--hint-primary-color);
-      color: var(--primary-color);
+      background: var(--copper-10);
+
+      border-color: rgba(198, 113, 57, 0.18);
+    }
+
+    &.is-selected {
+      background: var(--feta);
+
+      border-color: rgba(114, 129, 87, 0.25);
+
+      color: var(--kelp);
     }
 
     @media (any-hover: hover) {
-      &:hover:not(.is-selected) {
-        background-color: var(--bg-primary-color);
-        border-color: var(--hint-primary-color);
-        color: var(--primary-color);
+      &:hover {
+        background: var(--copper-10);
+
+        border-color: rgba(198, 113, 57, 0.18);
+      }
+
+      &.is-selected:hover {
+        background: var(--feta);
+
+        border-color: var(--limed-ash);
       }
     }
   }
 
-  &__option-icon {
+  &__option-icon-wrap {
+    display: flex;
     flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
 
-    width: 18px;
-    min-width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
+  }
 
-    color: var(--primary-color);
+  &__option-icon {
+    width: 17px;
+    height: 17px;
+
+    color: var(--kelp);
   }
 
   &__option-label {
     flex: 1 1 auto;
+
     min-width: 0;
 
     overflow: hidden;
@@ -760,20 +796,42 @@ onBeforeUnmount(() => {
     text-overflow: ellipsis;
   }
 
-  &__empty {
-    min-height: 40px;
+  &__selected-mark {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
 
+    width: 20px;
+    height: 20px;
+
+    border-radius: 50%;
+
+    background: var(--limed-ash);
+
+    font-family: var(--font-ibm-plex);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    color: var(--feta);
+  }
+
+  &__empty {
     display: flex;
     align-items: center;
     justify-content: center;
 
-    padding: 10px;
+    min-height: 50px;
 
-    color: var(--secondary-color);
+    padding: 10px 12px;
 
-    font-family: var(--font-inter);
+    font-family: var(--font-ibm-plex);
+
     font-size: 14px;
-    line-height: 120%;
+    font-weight: 400;
+
+    color: var(--makara);
 
     text-align: center;
   }
@@ -783,26 +841,28 @@ onBeforeUnmount(() => {
   }
 }
 
-.select-fade-enter-active,
-.select-fade-leave-active {
+.select-dropdown-enter-active,
+.select-dropdown-leave-active {
   transition:
     opacity 0.2s ease,
     transform 0.2s ease;
 }
 
-.select-fade-enter-from,
-.select-fade-leave-to {
+.select-dropdown-enter-from,
+.select-dropdown-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+
+  transform: translateY(-6px) scale(0.985);
 }
 
-.select-fade-enter-to,
-.select-fade-leave-from {
+.select-dropdown-enter-to,
+.select-dropdown-leave-from {
   opacity: 1;
-  transform: translateY(0);
+
+  transform: translateY(0) scale(1);
 }
 
-@keyframes spin {
+@keyframes select-spin {
   to {
     transform: rotate(360deg);
   }

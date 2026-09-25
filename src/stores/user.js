@@ -1,57 +1,108 @@
 import axios from '@/plugins/axios'
-import { formatDate } from '@/utils/formatters'
+
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+
 import { useAuthStore } from './auth'
 
 export const useUserStore = defineStore('user', () => {
-  // State
   const user = ref(null)
   const isLoading = ref(false)
+  const isUpdating = ref(false)
   const error = ref(null)
 
-  // Getters
   const fullName = computed(() => {
-    if (!user.value) return ''
-    return `${user.value.name || ''} ${user.value.surname || ''}`.trim()
+    if (!user.value) {
+      return ''
+    }
+
+    return [user.value.name, user.value.surname]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
   })
-  const firstName = computed(() => user.value?.name || '')
-  const lastName = computed(() => user.value?.surname || '')
-  const joinDate = computed(() =>
-    formatDate(user.value?.created_at, 'MMM D, YYYY'),
-  )
-  const userEmail = computed(() => user.value?.email)
-  const userPhone = computed(() => user.value?.phone)
-  const userBalance = computed(() => user.value?.balance)
-  const userBalanceFiat = computed(() => user.value?.balance_fiat)
-  const userAvatarUrl = computed(() => user.value?.avatarUrl)
-  const userCountry = computed(() => user.value?.country?.name || '')
-  const userCity = computed(() => user.value?.city || '')
-  const userAddress = computed(() => user.value?.address || '')
-  const userPostCode = computed(() => user.value?.post_code || '')
-  const communityVisibilityDisplay = computed(
-    () => user.value?.community_visibility_display || '',
-  )
-  // Actions
+
+  const firstName = computed(() => {
+    return user.value?.name || ''
+  })
+
+  const lastName = computed(() => {
+    return user.value?.surname || ''
+  })
+
+  const userEmail = computed(() => {
+    return user.value?.email || ''
+  })
+
+  const userPhone = computed(() => {
+    return user.value?.phone || ''
+  })
+
+  const userBalance = computed(() => {
+    return Number(user.value?.balance || 0)
+  })
+
+  const userBalanceFiat = computed(() => {
+    return Number(user.value?.balance_fiat ?? user.value?.balance ?? 0)
+  })
+
+  const userCountry = computed(() => {
+    return user.value?.country || ''
+  })
+
+  const userCity = computed(() => {
+    return user.value?.city || ''
+  })
+
+  const userAddress = computed(() => {
+    return user.value?.address || ''
+  })
+
+  const userPostCode = computed(() => {
+    return user.value?.zip || user.value?.post_code || ''
+  })
+
+  const userAvatarUrl = computed(() => {
+    return user.value?.avatar_medium || user.value?.avatarUrl || ''
+  })
+
+  const communityVisibilityDisplay = computed(() => {
+    return user.value?.community_visibility_display || ''
+  })
+
   const clearError = () => {
     error.value = null
   }
 
   const fetchProfile = async () => {
     const authStore = useAuthStore()
+
     if (!authStore.isAuthenticated) {
       user.value = null
-      return
+
+      return null
     }
 
     clearError()
     isLoading.value = true
+
     try {
-      const response = await axios.get('/user/profile')
-      user.value = response.data
+      const { data } = await axios.get('/user/profile')
+
+      if (data?.status === 'ERROR') {
+        throw new Error(data?.message || 'Failed to fetch profile')
+      }
+
+      user.value = data
+
+      return data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to fetch profile'
-      throw error.value
+      error.value =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to fetch profile'
+
+      throw err
     } finally {
       isLoading.value = false
     }
@@ -59,108 +110,134 @@ export const useUserStore = defineStore('user', () => {
 
   const updateProfile = async profileData => {
     const authStore = useAuthStore()
+
     if (!authStore.isAuthenticated) {
-      return
+      return null
     }
 
     clearError()
-    isLoading.value = true
+    isUpdating.value = true
 
     try {
-      await axios.put('/user/profile', profileData)
-      fetchProfile()
+      const { data } = await axios.put('/user/profile', profileData)
+
+      if (data?.status && data.status !== 'OK') {
+        throw new Error(data?.message || 'Failed to update profile')
+      }
+
+      await fetchProfile()
+
+      return data
     } catch (err) {
+      error.value =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to update profile'
+
       throw err
     } finally {
-      isLoading.value = false
+      isUpdating.value = false
     }
   }
 
   const updateSteamTradeLink = async url => {
     const authStore = useAuthStore()
-    if (!authStore.isAuthenticated) return
+
+    if (!authStore.isAuthenticated) {
+      return null
+    }
 
     clearError()
-    isLoading.value = true
+    isUpdating.value = true
 
     try {
-      await axios.put('/user/update-trade-link', { url })
+      const { data } = await axios.put('/user/update-trade-link', {
+        url,
+      })
+
       await fetchProfile()
+
+      return data
     } catch (err) {
+      error.value =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to update trade link'
+
       throw err
     } finally {
-      isLoading.value = false
+      isUpdating.value = false
     }
   }
 
   const updatePassword = async passwordData => {
     const authStore = useAuthStore()
+
     if (!authStore.isAuthenticated) {
-      return
+      return null
     }
 
     clearError()
-    isLoading.value = true
+    isUpdating.value = true
+
     try {
-      await axios.post('/user/change-password', passwordData)
+      const { data } = await axios.post('/user/change-password', passwordData)
+
+      return data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to update password'
+      error.value =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to update password'
+
       throw err
     } finally {
-      isLoading.value = false
+      isUpdating.value = false
     }
   }
 
   const resetPassword = async email => {
     clearError()
     isLoading.value = true
+
     try {
-      await axios.post('/user/reset-password', { email })
+      const { data } = await axios.post('/user/reset-password', {
+        email,
+      })
+
+      return data
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to reset password'
+      error.value =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to reset password'
+
       throw err
     } finally {
       isLoading.value = false
     }
   }
 
-  const reset = async (token, email, password) => {
-    clearError()
-    isLoading.value = true
-    try {
-      await axios.post('/reset-password', {
-        token,
-        email,
-        password,
-        password_confirmation: password,
-      })
-    } catch (err) {
-      error.value =
-        err.response?.data?.message || 'Failed to reset the password'
-      throw error.value
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  const $reset = () => {
-    user.value = null
-    error.value = null
-    isLoading.value = false
-  }
-
   const blockAccount = async () => {
     const authStore = useAuthStore()
-    if (!authStore.isAuthenticated) return
+
+    if (!authStore.isAuthenticated) {
+      return
+    }
 
     clearError()
     isLoading.value = true
 
     try {
       await axios.post('/user/block')
+
       user.value = null
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to block account'
+      error.value =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to block account'
+
       throw err
     } finally {
       isLoading.value = false
@@ -169,54 +246,65 @@ export const useUserStore = defineStore('user', () => {
 
   const deleteAccount = async () => {
     const authStore = useAuthStore()
-    if (!authStore.isAuthenticated) return
+
+    if (!authStore.isAuthenticated) {
+      return
+    }
 
     clearError()
     isLoading.value = true
 
     try {
       await axios.delete('/user/delete')
+
       user.value = null
     } catch (err) {
-      error.value = err.response?.data?.message || 'Failed to delete account'
+      error.value =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to delete account'
+
       throw err
     } finally {
       isLoading.value = false
     }
   }
 
+  const $reset = () => {
+    user.value = null
+    isLoading.value = false
+    isUpdating.value = false
+    error.value = null
+  }
+
   return {
-    // State
     user,
     isLoading,
+    isUpdating,
     error,
 
-    // Getters
     fullName,
     firstName,
     lastName,
     userEmail,
     userPhone,
-    joinDate,
     userBalance,
     userBalanceFiat,
-    userAvatarUrl,
     userCountry,
     userCity,
     userAddress,
     userPostCode,
+    userAvatarUrl,
     communityVisibilityDisplay,
 
-    // Actions
     fetchProfile,
     updateProfile,
     updateSteamTradeLink,
     updatePassword,
     resetPassword,
-    clearError,
-    reset,
-    $reset,
     blockAccount,
     deleteAccount,
+    clearError,
+    $reset,
   }
 })
