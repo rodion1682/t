@@ -33,7 +33,7 @@
             :max="PRICE_MAX"
             :step="PRICE_STEP"
             @input="handleRangeInput"
-            @change="applyRange"
+            @change="applyRangeImmediately"
           />
 
           <input
@@ -44,7 +44,7 @@
             :max="PRICE_MAX"
             :step="PRICE_STEP"
             @input="handleRangeInput"
-            @change="applyRange"
+            @change="applyRangeImmediately"
           />
         </div>
       </div>
@@ -64,8 +64,8 @@
               autocomplete="off"
               placeholder="0"
               @input="handleMinInput"
-              @blur="applyPriceInputs"
-              @keydown.enter.prevent="applyPriceInputs"
+              @blur="applyPriceInputsImmediately"
+              @keydown.enter.prevent="applyPriceInputsImmediately"
             />
 
             <span class="aside__currency">
@@ -88,8 +88,8 @@
               autocomplete="off"
               :placeholder="String(PRICE_MAX)"
               @input="handleMaxInput"
-              @blur="applyPriceInputs"
-              @keydown.enter.prevent="applyPriceInputs"
+              @blur="applyPriceInputsImmediately"
+              @keydown.enter.prevent="applyPriceInputsImmediately"
             />
 
             <span class="aside__currency">
@@ -152,7 +152,7 @@
           type="button"
           class="aside__option"
           :class="{
-            aside__option_active: !safeFilters.class.length,
+            aside__option_active: !selectedRarity.length,
           }"
           @click="clearRarity"
         >
@@ -169,7 +169,7 @@
           type="button"
           class="aside__option"
           :class="{
-            aside__option_active: safeFilters.class.includes(option.value),
+            aside__option_active: selectedRarity.includes(option.value),
           }"
           @click="toggleRarity(option.value)"
         >
@@ -226,13 +226,16 @@ const props = defineProps({
 const currencyStore = useCurrencyStore()
 
 const PRICE_MIN = 0
-const PRICE_MAX = 100000
+const PRICE_MAX = 1500
 const PRICE_STEP = 1
+
+const PRICE_DEBOUNCE = 300
 
 const minPrice = ref('')
 const maxPrice = ref('')
 
 const rangeMin = ref(PRICE_MIN)
+
 const rangeMax = ref(PRICE_MAX)
 
 const currencySymbol = computed(() => {
@@ -250,8 +253,6 @@ const safeFilters = computed(() => ({
   exterior_name: Array.isArray(props.filters?.exterior_name)
     ? props.filters.exterior_name
     : [],
-
-  class: Array.isArray(props.filters?.class) ? props.filters.class : [],
 }))
 
 const safeAvailableFilters = computed(() => ({
@@ -261,10 +262,6 @@ const safeAvailableFilters = computed(() => ({
 
   exterior_names: Array.isArray(props.availableFilters?.exterior_names)
     ? props.availableFilters.exterior_names
-    : [],
-
-  classes: Array.isArray(props.availableFilters?.classes)
-    ? props.availableFilters.classes
     : [],
 }))
 
@@ -278,32 +275,51 @@ const isCs2 = computed(() => {
   return normalizedCurrentGame.value === 'cs2'
 })
 
-const usesExteriorNames = computed(() => {
-  return safeAvailableFilters.value.exterior_names.length > 0
-})
-
+/*
+ * EXTERIOR
+ *
+ * API:
+ * exterior_names
+ *
+ * Example:
+ * Battle-Scarred
+ * Factory New
+ * Field-Tested
+ * Minimal Wear
+ * Well-Worn
+ */
 const exteriorOptions = computed(() => {
-  if (usesExteriorNames.value) {
-    return safeAvailableFilters.value.exterior_names
-  }
-
-  return safeAvailableFilters.value.qualities
-})
-
-const exteriorFilterKey = computed(() => {
-  return usesExteriorNames.value ? 'exterior_name' : 'quality'
+  return safeAvailableFilters.value.exterior_names
 })
 
 const selectedExterior = computed(() => {
-  return safeFilters.value[exteriorFilterKey.value] || []
+  return safeFilters.value.exterior_name
 })
 
 const showExteriorFilter = computed(() => {
   return isCs2.value && exteriorOptions.value.length > 0
 })
 
+/*
+ * RARITY
+ *
+ * API:
+ * qualities
+ *
+ * Example:
+ * base grade
+ * classified
+ * consumer grade
+ * contraband
+ * covert
+ * etc.
+ */
 const rarityOptions = computed(() => {
-  return safeAvailableFilters.value.classes
+  return safeAvailableFilters.value.qualities
+})
+
+const selectedRarity = computed(() => {
+  return safeFilters.value.quality
 })
 
 const showRarityFilter = computed(() => {
@@ -343,60 +359,45 @@ const rangeFillStyle = computed(() => {
   }
 })
 
-const handleRangeInput = () => {
-  if (rangeMin.value > rangeMax.value) {
-    if (document.activeElement?.classList.contains('aside__range-input_min')) {
-      rangeMin.value = rangeMax.value
-    } else {
-      rangeMax.value = rangeMin.value
-    }
-  }
+/*
+ * ==================================
+ * PRICE HELPERS
+ * ==================================
+ */
 
-  minPrice.value = rangeMin.value > PRICE_MIN ? String(rangeMin.value) : ''
-
-  maxPrice.value = rangeMax.value < PRICE_MAX ? String(rangeMax.value) : ''
-}
-
-const applyRange = async () => {
-  await props.updateFilters({
-    priceRange: {
-      min: rangeMin.value > PRICE_MIN ? rangeMin.value : null,
-
-      max: rangeMax.value < PRICE_MAX ? rangeMax.value : null,
-    },
-
-    page: 1,
-  })
-}
-
-const handleMinInput = event => {
-  minPrice.value = sanitizeNumber(event.target.value)
-}
-
-const handleMaxInput = event => {
-  maxPrice.value = sanitizeNumber(event.target.value)
-}
-
-const debouncedPriceUpdate = debounce(async () => {
+const normalizePriceValues = () => {
   let min = minPrice.value !== '' ? Number(minPrice.value) : null
 
   let max = maxPrice.value !== '' ? Number(maxPrice.value) : null
 
-  if (min !== null) {
+  if (min !== null && Number.isFinite(min)) {
     min = clamp(min, PRICE_MIN, PRICE_MAX)
+  } else {
+    min = null
   }
 
-  if (max !== null) {
+  if (max !== null && Number.isFinite(max)) {
     max = clamp(max, PRICE_MIN, PRICE_MAX)
+  } else {
+    max = null
   }
 
+  /*
+   * Don't swap while user is
+   * typing. Clamp min against max
+   * instead.
+   */
   if (min !== null && max !== null && min > max) {
-    const temp = min
-
     min = max
-    max = temp
   }
 
+  return {
+    min,
+    max,
+  }
+}
+
+const syncLocalPriceValues = (min, max) => {
   minPrice.value = min !== null ? String(min) : ''
 
   maxPrice.value = max !== null ? String(max) : ''
@@ -404,6 +405,12 @@ const debouncedPriceUpdate = debounce(async () => {
   rangeMin.value = min ?? PRICE_MIN
 
   rangeMax.value = max ?? PRICE_MAX
+}
+
+const updatePriceFilters = async () => {
+  const { min, max } = normalizePriceValues()
+
+  syncLocalPriceValues(min, max)
 
   await props.updateFilters({
     priceRange: {
@@ -413,11 +420,99 @@ const debouncedPriceUpdate = debounce(async () => {
 
     page: 1,
   })
-}, 300)
+}
 
-const applyPriceInputs = () => {
+const debouncedPriceUpdate = debounce(updatePriceFilters, PRICE_DEBOUNCE)
+
+/*
+ * ==================================
+ * PRICE TEXT INPUTS
+ * ==================================
+ */
+
+const handleMinInput = event => {
+  minPrice.value = sanitizeNumber(event.target.value)
+
   debouncedPriceUpdate()
 }
+
+const handleMaxInput = event => {
+  maxPrice.value = sanitizeNumber(event.target.value)
+
+  debouncedPriceUpdate()
+}
+
+const applyPriceInputsImmediately = async () => {
+  debouncedPriceUpdate.cancel()
+
+  await updatePriceFilters()
+}
+
+/*
+ * ==================================
+ * RANGE SLIDER
+ * ==================================
+ */
+
+const getRangePriceValues = () => {
+  const min = rangeMin.value > PRICE_MIN ? rangeMin.value : null
+
+  const max = rangeMax.value < PRICE_MAX ? rangeMax.value : null
+
+  return {
+    min,
+    max,
+  }
+}
+
+const updateRangeFilters = async () => {
+  const { min, max } = getRangePriceValues()
+
+  await props.updateFilters({
+    priceRange: {
+      min,
+      max,
+    },
+
+    page: 1,
+  })
+}
+
+const debouncedRangeUpdate = debounce(updateRangeFilters, PRICE_DEBOUNCE)
+
+const handleRangeInput = event => {
+  const isMin = event.target.classList.contains('aside__range-input_min')
+
+  if (rangeMin.value > rangeMax.value) {
+    if (isMin) {
+      rangeMin.value = rangeMax.value
+    } else {
+      rangeMax.value = rangeMin.value
+    }
+  }
+
+  minPrice.value = rangeMin.value > PRICE_MIN ? String(rangeMin.value) : ''
+
+  maxPrice.value = rangeMax.value < PRICE_MAX ? String(rangeMax.value) : ''
+
+  /*
+   * Apply automatically after
+   * user stops dragging for 300ms.
+   */
+  debouncedRangeUpdate()
+}
+
+const applyRangeImmediately = async () => {
+  debouncedRangeUpdate.cancel()
+
+  await updateRangeFilters()
+}
+
+/*
+ * ==================================
+ * EXTERIOR
+ * ==================================
+ */
 
 const toggleExterior = async value => {
   const current = [...selectedExterior.value]
@@ -431,7 +526,7 @@ const toggleExterior = async value => {
   }
 
   await props.updateFilters({
-    [exteriorFilterKey.value]: current,
+    exterior_name: current,
 
     page: 1,
   })
@@ -439,14 +534,20 @@ const toggleExterior = async value => {
 
 const clearExterior = async () => {
   await props.updateFilters({
-    quality: [],
     exterior_name: [],
+
     page: 1,
   })
 }
 
+/*
+ * ==================================
+ * RARITY / QUALITY
+ * ==================================
+ */
+
 const toggleRarity = async value => {
-  const current = [...safeFilters.value.class]
+  const current = [...selectedRarity.value]
 
   const index = current.indexOf(value)
 
@@ -457,20 +558,29 @@ const toggleRarity = async value => {
   }
 
   await props.updateFilters({
-    class: current,
+    quality: current,
+
     page: 1,
   })
 }
 
 const clearRarity = async () => {
   await props.updateFilters({
-    class: [],
+    quality: [],
+
     page: 1,
   })
 }
 
+/*
+ * ==================================
+ * RESET
+ * ==================================
+ */
+
 const handleResetFilters = async () => {
   debouncedPriceUpdate.cancel()
+  debouncedRangeUpdate.cancel()
 
   minPrice.value = ''
   maxPrice.value = ''
@@ -482,21 +592,37 @@ const handleResetFilters = async () => {
   await props.resetFilters()
 }
 
+/*
+ * Keep local price controls in sync
+ * with URL / external filter changes.
+ */
 watch(
   () => safeFilters.value.priceRange,
-  value => {
-    const min = value?.min != null ? Number(value.min) : null
 
-    const max = value?.max != null ? Number(value.max) : null
+  value => {
+    const rawMin = value?.min != null ? Number(value.min) : null
+
+    const rawMax = value?.max != null ? Number(value.max) : null
+
+    const min =
+      rawMin !== null && Number.isFinite(rawMin)
+        ? clamp(rawMin, PRICE_MIN, PRICE_MAX)
+        : null
+
+    const max =
+      rawMax !== null && Number.isFinite(rawMax)
+        ? clamp(rawMax, PRICE_MIN, PRICE_MAX)
+        : null
 
     minPrice.value = min !== null ? String(min) : ''
 
     maxPrice.value = max !== null ? String(max) : ''
 
-    rangeMin.value = min !== null ? clamp(min, PRICE_MIN, PRICE_MAX) : PRICE_MIN
+    rangeMin.value = min ?? PRICE_MIN
 
-    rangeMax.value = max !== null ? clamp(max, PRICE_MIN, PRICE_MAX) : PRICE_MAX
+    rangeMax.value = max ?? PRICE_MAX
   },
+
   {
     deep: true,
     immediate: true,
@@ -505,6 +631,7 @@ watch(
 
 onBeforeUnmount(() => {
   debouncedPriceUpdate.cancel()
+  debouncedRangeUpdate.cancel()
 })
 </script>
 
@@ -517,9 +644,9 @@ onBeforeUnmount(() => {
 .aside {
   width: 100%;
 
-  @include adaptiveValue('padding', 24, 18);
+  @include adaptiveValue('padding', 24, 15);
 
-  border-radius: 28px;
+  @include adaptiveValue('border-radius', 38, 20);
 
   background: var(--double-spanish-white);
 
@@ -531,24 +658,16 @@ onBeforeUnmount(() => {
     justify-content: space-between;
 
     gap: 15px;
-
-    &:not(:last-child) {
-      margin-bottom: 22px;
-    }
   }
 
   &__title {
-    @include ibm-12-700;
-
+    @include ibm-14-700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-
     color: var(--kelp);
   }
 
   &__close {
     display: none;
-
     align-items: center;
     justify-content: center;
 
@@ -574,60 +693,55 @@ onBeforeUnmount(() => {
   &__section {
     padding-bottom: 22px;
 
-    border-bottom: 1px solid var(--cod-gray-07);
-
     &:not(:first-of-type) {
-      padding-top: 20px;
+      padding-top: 18px;
     }
+    border-bottom: 1px solid var(--sisal);
 
     &:last-of-type {
-      margin-bottom: 18px;
+      border-bottom: 0px;
+      padding-bottom: 20px;
     }
   }
 
   &__subtitle {
-    margin-bottom: 16px;
-
-    @include ibm-12-700;
+    @include ibm-11-700;
 
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-
-    color: var(--makara);
+    &:not(:last-child) {
+      margin-bottom: 14px;
+    }
   }
-
-  // =========================
-  // PRICE RANGE
-  // =========================
-
   &__range {
     padding: 4px 8px 0;
 
-    margin-bottom: 20px;
+    &:not(:last-child) {
+      margin-bottom: 14px;
+    }
   }
 
   &__range-track {
     position: relative;
 
     height: 20px;
-  }
 
-  &__range-track::before {
-    content: '';
+    &::before {
+      content: '';
 
-    position: absolute;
+      position: absolute;
 
-    top: 50%;
-    left: 0;
-    right: 0;
+      top: 50%;
+      left: 0;
+      right: 0;
 
-    height: 2px;
+      height: 2px;
 
-    transform: translateY(-50%);
+      transform: translateY(-50%);
 
-    border-radius: 999px;
+      border-radius: 999px;
 
-    background: var(--makara);
+      background: var(--makara);
+    }
   }
 
   &__range-fill {
@@ -751,14 +865,10 @@ onBeforeUnmount(() => {
 
     background: var(--merino);
 
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
+    transition: all 0.3s ease 0s;
 
     &:focus-within {
       border-color: var(--copper);
-
-      box-shadow: 0 0 0 2px var(--copper-10);
     }
   }
 
@@ -811,15 +921,20 @@ onBeforeUnmount(() => {
     color: var(--zorba);
   }
 
-  // =========================
-  // OPTIONS
-  // =========================
-
   &__options {
     display: flex;
     flex-direction: column;
 
     gap: 2px;
+
+    max-height: 250px;
+
+    padding-right: 6px;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    overscroll-behavior: contain;
   }
 
   &__option {
@@ -827,17 +942,17 @@ onBeforeUnmount(() => {
     align-items: center;
 
     width: 100%;
-    min-height: 34px;
+    @include adaptiveValue('min-height', 32, 40);
 
     gap: 9px;
 
-    padding: 5px 0;
+    padding: 5px;
 
-    border: 0;
+    border-radius: 999px;
 
     background: transparent;
 
-    @include ibm-12-400;
+    @include ibm-14-700;
 
     text-align: left;
 
@@ -845,18 +960,19 @@ onBeforeUnmount(() => {
 
     cursor: pointer;
 
-    transition: color 0.2s ease;
+    transition: all 0.3s ease 0s;
+    text-transform: capitalize;
 
     @media (any-hover: hover) {
       &:hover {
-        color: var(--copper);
+        background-color: var(--feta);
       }
     }
 
     &_active {
       font-weight: 700;
 
-      color: var(--cod-gray);
+      background-color: var(--feta);
 
       .aside__check {
         opacity: 1;

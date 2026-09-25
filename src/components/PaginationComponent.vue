@@ -176,7 +176,7 @@ const changePage = page => {
 
   flex-wrap: wrap;
 
-  gap: 7px;
+  gap: 8px;
 
   width: 100%;
 
@@ -187,18 +187,18 @@ const changePage = page => {
 
     flex: 0 0 auto;
 
-    min-width: 38px;
-    height: 38px;
+    min-width: 40px;
+    height: 40px;
 
     padding: 0 12px;
 
-    border: 1px solid var(--cod-gray-07);
+    border: 2px solid var(--sisal);
 
     border-radius: 999px;
 
     background: var(--merino);
 
-    @include ibm-12-700;
+    @include ibm-13-700;
 
     line-height: 1;
 
@@ -206,12 +206,7 @@ const changePage = page => {
 
     cursor: pointer;
 
-    transition:
-      color 0.2s ease,
-      background-color 0.2s ease,
-      border-color 0.2s ease,
-      transform 0.2s ease,
-      opacity 0.2s ease;
+    transition: all 0.3s ease 0s;
 
     @media (any-hover: hover) {
       &:hover:not(:disabled):not(.pagination__item_active) {
@@ -230,9 +225,9 @@ const changePage = page => {
     }
 
     &_active {
-      border-color: var(--kelp);
+      border-color: var(--hemlock);
 
-      background: var(--kelp);
+      background: var(--hemlock);
 
       color: var(--janna);
 
@@ -241,12 +236,13 @@ const changePage = page => {
   }
 
   &__control {
-    min-width: 52px;
+    min-width: 61px;
 
     padding-right: 14px;
     padding-left: 14px;
 
-    background: var(--feta);
+    background: var(--merino);
+    border-color: var(--sisal);
   }
 
   &__ellipsis {

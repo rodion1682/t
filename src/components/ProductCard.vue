@@ -36,8 +36,9 @@
             v-if="price"
             :price="price"
             reverse
-            size="size-18"
+            size=" sg-18"
             skip-conversion
+            is-currency
             class="card__price"
           />
 
@@ -358,13 +359,11 @@ const handleCartAction = async () => {
 
   overflow: hidden;
 
-  @include adaptiveValue('border-radius', 22, 14);
+  @include adaptiveValue('border-radius', 28, 20);
 
   background: var(--double-spanish-white);
 
-  transition:
-    transform 0.25s ease,
-    box-shadow 0.25s ease;
+  transition: all 0.3s ease 0s;
 
   @media (any-hover: hover) {
     &:hover {
@@ -373,10 +372,6 @@ const handleCartAction = async () => {
       box-shadow: 0 12px 28px var(--cod-gray-16);
     }
   }
-
-  // =========================
-  // IMAGE AREA
-  // =========================
 
   &__preview {
     position: relative;
@@ -389,7 +384,7 @@ const handleCartAction = async () => {
 
     aspect-ratio: 1.32 / 1;
 
-    @include adaptiveValue('padding', 16, 8);
+    @include adaptiveValue('padding', 20, 15);
 
     border: 0;
 
@@ -474,10 +469,6 @@ const handleCartAction = async () => {
     }
   }
 
-  // =========================
-  // CONTENT
-  // =========================
-
   &__body {
     display: flex;
     flex-direction: column;
@@ -486,13 +477,13 @@ const handleCartAction = async () => {
 
     min-width: 0;
 
-    @include adaptiveValue('padding-top', 14, 10);
+    @include adaptiveValue('padding-top', 15, 10);
 
     @include adaptiveValue('padding-right', 15, 10);
 
-    @include adaptiveValue('padding-bottom', 15, 10);
+    @include adaptiveValue('padding-bottom', 18, 10);
 
-    @include adaptiveValue('padding-left', 15, 10);
+    @include adaptiveValue('padding-left', 18, 10);
   }
 
   &__title {
@@ -509,9 +500,9 @@ const handleCartAction = async () => {
 
     background: transparent;
 
-    @include ibm-12-400;
+    @include ibm-14-400;
 
-    line-height: 145%;
+    line-height: 18.9px;
 
     text-align: left;
 
@@ -522,7 +513,7 @@ const handleCartAction = async () => {
 
     cursor: pointer;
 
-    transition: color 0.2s ease;
+    transition: color 0.3s ease 0s;
 
     @media (any-hover: hover) {
       &:hover {
@@ -535,23 +526,17 @@ const handleCartAction = async () => {
     width: 100%;
     min-width: 0;
 
-    margin-top: 3px;
+    @include adaptiveValue('margin-top', 5, 3);
 
     overflow: hidden;
 
-    @include ibm-12-700;
-
-    line-height: 140%;
+    @include ibm-14-400;
 
     white-space: nowrap;
     text-overflow: ellipsis;
 
     color: var(--hemlock);
   }
-
-  // =========================
-  // PRICE + CART
-  // =========================
 
   &__bottom {
     display: flex;
@@ -562,19 +547,13 @@ const handleCartAction = async () => {
 
     margin-top: auto;
 
-    @include adaptiveValue('padding-top', 17, 12);
+    @include adaptiveValue('padding-top', 18, 12);
   }
 
   &__price {
     min-width: 0;
 
-    :deep(.price__value) {
-      color: var(--cod-gray);
-    }
-
-    :deep(.price) {
-      white-space: nowrap;
-    }
+    color: var(--cod-gray);
   }
 
   &__cart {
@@ -584,9 +563,9 @@ const handleCartAction = async () => {
 
     flex: 0 0 auto;
 
-    @include adaptiveValue('width', 38, 32);
+    @include adaptiveValue('width', 38, 40);
 
-    @include adaptiveValue('height', 38, 32);
+    @include adaptiveValue('height', 38, 40);
 
     padding: 0;
 
@@ -595,14 +574,11 @@ const handleCartAction = async () => {
 
     background: var(--copper);
 
-    color: var(--merino);
+    color: var(--janna);
 
     cursor: pointer;
 
-    transition:
-      transform 0.2s ease,
-      background-color 0.2s ease,
-      opacity 0.2s ease;
+    transition: all 0.3s ease 0s;
 
     @media (any-hover: hover) {
       &:hover:not(:disabled) {
@@ -623,11 +599,11 @@ const handleCartAction = async () => {
     }
 
     &_remove {
-      background: var(--kelp);
+      background: var(--rope);
 
       @media (any-hover: hover) {
         &:hover:not(:disabled) {
-          background: var(--hemlock);
+          background: var(--hairy-heath);
         }
       }
     }

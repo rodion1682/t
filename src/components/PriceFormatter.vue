@@ -34,7 +34,7 @@ const props = defineProps({
   hint: { type: Boolean, default: false },
   isOld: { type: Boolean, default: false },
   isBold: { type: Boolean, default: true },
-  size: { type: String, default: 'ibm-13' }, // ibm-13 | sg-20 | sg-42
+  size: { type: String, default: 'ibm-13' }, // ibm-13 | sg-18 | sg-20 | sg-42
 
   currencySymbol: { type: String, default: '' },
   currencyCode: { type: String, default: '' },
@@ -162,6 +162,18 @@ const formattedPrice = computed(() => {
     .price__icon {
       min-width: 14px;
       height: 14px;
+    }
+  }
+  &.sg-18 {
+    gap: 5px;
+    .price__currency,
+    .price__value {
+      @include sg-18-400;
+      color: inherit;
+    }
+    .price__icon {
+      min-width: 18px;
+      height: 18px;
     }
   }
   &.sg-20 {

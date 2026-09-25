@@ -50,7 +50,6 @@
       <div class="products__mobile-actions">
         <BaseButton
           type="button"
-          variant="white-bordered"
           class="products__filter-toggle"
           @click="isAsideFiltersOpen = !isAsideFiltersOpen"
         >
@@ -67,29 +66,36 @@
               {{ sortLabel }}
             </span>
 
-            <span class="products__sort-arrow"> ▾ </span>
-          </button>
-
-          <div v-if="sortOpen" class="products__sort-menu">
-            <button
-              v-for="option in SORT_OPTIONS"
-              :key="option.value"
-              type="button"
-              class="products__sort-option"
-              @click="selectSort(option.value)"
+            <span
+              class="products__sort-arrow"
+              :class="{ 'products__sort-arrow_open': sortOpen }"
             >
-              <span
-                class="products__sort-check"
-                :class="{
-                  'products__sort-check_active': filters.sort === option.value,
-                }"
+              ▾
+            </span>
+          </button>
+          <Transition name="sort-menu">
+            <div v-if="sortOpen" class="products__sort-menu">
+              <button
+                v-for="option in SORT_OPTIONS"
+                :key="option.value"
+                type="button"
+                class="products__sort-option"
+                @click="selectSort(option.value)"
               >
-                ✓
-              </span>
+                <span
+                  class="products__sort-check"
+                  :class="{
+                    'products__sort-check_active':
+                      filters.sort === option.value,
+                  }"
+                >
+                  ✓
+                </span>
 
-              {{ $t(option.label) }}
-            </button>
-          </div>
+                {{ $t(option.label) }}
+              </button>
+            </div>
+          </Transition>
         </div>
       </div>
 
@@ -135,30 +141,37 @@
                   {{ sortLabel }}
                 </span>
 
-                <span class="products__sort-arrow"> ▾ </span>
+                <span
+                  class="products__sort-arrow"
+                  :class="{ 'products__sort-arrow_open': sortOpen }"
+                >
+                  ▾
+                </span>
               </button>
 
-              <div v-if="sortOpen" class="products__sort-menu">
-                <button
-                  v-for="option in SORT_OPTIONS"
-                  :key="option.value"
-                  type="button"
-                  class="products__sort-option"
-                  @click="selectSort(option.value)"
-                >
-                  <span
-                    class="products__sort-check"
-                    :class="{
-                      'products__sort-check_active':
-                        filters.sort === option.value,
-                    }"
+              <Transition name="sort-menu">
+                <div v-if="sortOpen" class="products__sort-menu">
+                  <button
+                    v-for="option in SORT_OPTIONS"
+                    :key="option.value"
+                    type="button"
+                    class="products__sort-option"
+                    @click="selectSort(option.value)"
                   >
-                    ✓
-                  </span>
+                    <span
+                      class="products__sort-check"
+                      :class="{
+                        'products__sort-check_active':
+                          filters.sort === option.value,
+                      }"
+                    >
+                      ✓
+                    </span>
 
-                  {{ $t(option.label) }}
-                </button>
-              </div>
+                    {{ $t(option.label) }}
+                  </button>
+                </div>
+              </Transition>
             </div>
           </div>
 
@@ -428,12 +441,19 @@ onBeforeUnmount(() => {
 .products {
   position: relative;
 
-  @include adaptiveValue('padding-top', 34, 20);
+  @include adaptiveValue('padding-top', 50, 25);
 
-  @include adaptiveValue('padding-bottom', 110, 50);
+  @include adaptiveValue('padding-bottom', 110, 25);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 100%;
 
   &__inner {
     position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 100%;
   }
 
   &__breadcrumb {
@@ -444,17 +464,18 @@ onBeforeUnmount(() => {
 
     @include ibm-12-700;
 
-    color: var(--soya-bean);
+    color: var(--cod-gray);
+    text-transform: none;
 
     &:not(:last-child) {
-      margin-bottom: 12px;
+      @include adaptiveValue('margin-bottom', 20, 12);
     }
   }
 
   &__breadcrumb-link {
-    color: var(--soya-bean);
+    color: var(--makara);
 
-    transition: color 0.2s ease;
+    transition: color 0.3s ease;
 
     @media (any-hover: hover) {
       &:hover {
@@ -467,9 +488,7 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-
-    gap: 20px 32px;
-
+    gap: 20px;
     &:not(:last-child) {
       @include adaptiveValue('margin-bottom', 26, 18);
     }
@@ -480,7 +499,7 @@ onBeforeUnmount(() => {
 
     margin: 0;
 
-    @include sg-42-700;
+    @include sg-44-700;
 
     color: var(--cod-gray);
   }
@@ -495,13 +514,18 @@ onBeforeUnmount(() => {
 
     gap: 12px;
 
-    padding: 6px 20px;
+    @include adaptiveValue('padding-top', 4, 0);
+    @include adaptiveValue('padding-bottom', 4, 0);
+    @include adaptiveValue('padding-left', 20, 15);
+    @include adaptiveValue('padding-right', 20, 15);
 
     border-radius: 999px;
-
+    border: 1px solid transparent;
+    transition: all 0.3s ease 0s;
     background: var(--merino);
-
-    box-shadow: 0 8px 24px var(--cod-gray-07);
+    &:focus-within {
+      border-color: var(--copper);
+    }
   }
 
   &__search-icon {
@@ -529,7 +553,13 @@ onBeforeUnmount(() => {
     color: var(--cod-gray);
 
     &::placeholder {
+      transition: opacity 0.3s ease 0s;
       color: var(--zorba);
+    }
+    &:focus {
+      &::placeholder {
+        opacity: 0;
+      }
     }
   }
 
@@ -537,7 +567,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-wrap: wrap;
 
-    gap: 8px;
+    gap: 10px;
 
     &:not(:last-child) {
       @include adaptiveValue('margin-bottom', 26, 18);
@@ -545,7 +575,7 @@ onBeforeUnmount(() => {
   }
 
   &__category {
-    min-height: 34px;
+    @include adaptiveValue('min-height', 34, 40);
 
     padding: 7px 16px;
 
@@ -555,26 +585,20 @@ onBeforeUnmount(() => {
 
     background: var(--merino);
 
-    @include ibm-12-700;
+    @include ibm-13-700;
+    text-transform: capitalize;
 
     color: var(--cod-gray);
 
-    transition:
-      background-color 0.2s ease,
-      border-color 0.2s ease,
-      color 0.2s ease;
+    transition: all 0.3s ease 0s;
 
     &_active {
-      border-color: var(--kelp);
-
-      background: var(--kelp);
-
-      color: var(--janna);
+      background: var(--cod-gray-07);
     }
 
     @media (any-hover: hover) {
       &:hover {
-        border-color: var(--copper);
+        background: var(--cod-gray-07);
       }
     }
   }
@@ -584,9 +608,8 @@ onBeforeUnmount(() => {
 
     grid-template-columns: 244px minmax(0, 1fr);
 
-    align-items: start;
-
-    @include adaptiveValue('gap', 40, 20);
+    @include adaptiveValue('gap', 40, 10);
+    flex: 1 1 100%;
   }
 
   &__aside {
@@ -597,6 +620,9 @@ onBeforeUnmount(() => {
 
   &__main {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 100%;
   }
 
   &__toolbar {
@@ -608,7 +634,7 @@ onBeforeUnmount(() => {
     gap: 12px;
 
     &:not(:last-child) {
-      margin-bottom: 20px;
+      @include adaptiveValue('margin-bottom', 20, 18);
     }
   }
 
@@ -619,6 +645,7 @@ onBeforeUnmount(() => {
     gap: 8px;
 
     margin-right: auto;
+    @include hide-item;
   }
 
   &__tag {
@@ -675,9 +702,10 @@ onBeforeUnmount(() => {
 
     gap: 10px;
 
-    min-height: 42px;
+    @include adaptiveValue('min-height', 42, 40);
 
-    padding: 0 18px;
+    @include adaptiveValue('padding-left', 18, 15);
+    @include adaptiveValue('padding-right', 18, 15);
 
     border: 1px solid var(--cod-gray-16);
 
@@ -690,10 +718,27 @@ onBeforeUnmount(() => {
     color: var(--cod-gray);
 
     white-space: nowrap;
+    transition: all 0.3s ease 0s;
+    text-transform: none;
+    @media (any-hover: hover) {
+      &:hover {
+        background-color: var(--cod-gray-07);
+      }
+    }
   }
 
   &__sort-arrow {
+    display: inline-flex;
+
     color: var(--kelp);
+
+    transform: rotate(0deg);
+
+    transition: transform 0.3s ease;
+
+    &_open {
+      transform: rotate(180deg);
+    }
   }
 
   &__sort-menu {
@@ -769,7 +814,7 @@ onBeforeUnmount(() => {
   }
 
   &__loading {
-    margin: 120px auto;
+    margin: auto;
   }
 
   &__state {
@@ -879,7 +924,8 @@ onBeforeUnmount(() => {
 
       inset: 0 auto 0 0;
 
-      width: min(340px, calc(100vw - 40px));
+      min-width: 320px;
+      width: fit-content;
 
       overflow-y: auto;
 
@@ -941,5 +987,26 @@ onBeforeUnmount(() => {
       gap: 8px;
     }
   }
+}
+
+.sort-menu-enter-active,
+.sort-menu-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.sort-menu-enter-from,
+.sort-menu-leave-to {
+  opacity: 0;
+
+  transform: translateY(-8px);
+}
+
+.sort-menu-enter-to,
+.sort-menu-leave-from {
+  opacity: 1;
+
+  transform: translateY(0);
 }
 </style>
