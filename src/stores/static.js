@@ -1,86 +1,188 @@
-import axios from '@/plugins/axios'
 import { defineStore } from 'pinia'
+
+import axios from '@/plugins/axios'
 
 export const useStaticStore = defineStore('static', {
   state: () => ({
     pages: [],
     currentPage: null,
+    socialLinks: [],
 
-    socialLinks: [], 
-    loading: false,
-    error: null,
+    pagesLoading: false,
+    pageLoading: false,
+    socialLinksLoading: false,
+
+    pagesError: null,
+    pageError: null,
+
+    pagesLangId: null,
   }),
 
+  getters: {
+    loading: state => {
+      return state.pagesLoading || state.pageLoading
+    },
+
+    error: state => {
+      return state.pageError || state.pagesError
+    },
+
+    termsPage: state => {
+      return state.pages.find(page => Number(page?.is_terms) === 1) || null
+    },
+
+    privacyPage: state => {
+      return state.pages.find(page => Number(page?.is_privacy) === 1) || null
+    },
+
+    cookiePage: state => {
+      return (
+        state.pages.find(page => Number(page?.is_cookie) === 1) ||
+        state.pages.find(page =>
+          String(page?.title || '')
+            .toLowerCase()
+            .includes('cookie'),
+        ) ||
+        null
+      )
+    },
+  },
+
   actions: {
-    async fetchPages() {
-      this.loading = true
-      this.error = null
+    async fetchPages(langId = null, force = false) {
+      const normalizedLangId = langId == null ? null : String(langId)
+
+      if (
+        !force &&
+        this.pages.length &&
+        this.pagesLangId === normalizedLangId
+      ) {
+        return this.pages
+      }
+
+      this.pagesLoading = true
+      this.pagesError = null
+
       try {
-        const { data } = await axios.get('/static-pages')
-        if (data.status === 'OK')
-          this.pages = Array.isArray(data.payload) ? data.payload : []
-      } catch (e) {
-        this.error = 'Failed to fetch pages'
+        const { data } = await axios.get('/static-pages', {
+          params: langId
+            ? {
+                lang_id: langId,
+              }
+            : {},
+        })
+
+        if (data?.status !== 'OK' || !Array.isArray(data?.payload)) {
+          throw new Error(data?.message || 'Failed to fetch static pages')
+        }
+
+        this.pages = data.payload
+        this.pagesLangId = normalizedLangId
+
+        return this.pages
+      } catch (error) {
+        console.error('Static pages fetch error:', error)
+
+        this.pages = []
+        this.pagesLangId = null
+
+        this.pagesError =
+          error?.response?.data?.message ||
+          error?.message ||
+          'Failed to fetch static pages'
+
+        return []
       } finally {
-        this.loading = false
+        this.pagesLoading = false
       }
     },
 
-    async fetchPage({ slug }) {
-      this.error = null
-      this.loading = true
+    async fetchPage({ slug, id, langId = null }) {
+      const identifier = slug || id
+
+      if (!identifier) {
+        this.currentPage = null
+        return null
+      }
+
+      this.pageLoading = true
+      this.pageError = null
       this.currentPage = null
 
-      // frontend-only mapping for "pretty URLs"
-      const FALLBACK_SLUG_TO_ID_BY_FLAGS = (page, requestedSlug) => {
-        // if backend slug exists, it must match requestedSlug
-        if (page?.slug) return page.slug === requestedSlug
-
-        // if backend slug is null, match by flags/title
-        if (requestedSlug === 'terms-and-conditions') return !!page?.is_terms
-        if (requestedSlug === 'privacy-policy') return !!page?.is_privacy
-
-        // cookie flag is broken in your payload sometimes, so match by title
-        if (requestedSlug === 'cookie-notice') {
-          return (page?.title || '').toLowerCase().includes('cookie')
-        }
-
-        return false
-      }
-
       try {
-        if (!this.pages.length) {
-          await this.fetchPages()
+        /*
+         * Backend StaticController accepts
+         * either the content slug or static page ID.
+         *
+         * So there is no reason to first request
+         * /static-pages just to resolve the ID.
+         */
+        const { data } = await axios.get(
+          `/static-pages/${encodeURIComponent(identifier)}`,
+          {
+            params: langId
+              ? {
+                  lang_id: langId,
+                }
+              : {},
+          },
+        )
+
+        if (data?.status !== 'OK' || !data?.payload) {
+          throw new Error(data?.message || 'Static page was not found')
         }
 
-        const page = this.pages.find(p => FALLBACK_SLUG_TO_ID_BY_FLAGS(p, slug))
-        if (!page?.id) return null
-
-        // ✅ Always request by ID (this works for both slug and no-slug pages)
-        const { data } = await axios.get(`/static-pages/${page.id}`)
-        if (data.status === 'OK') this.currentPage = data.payload
+        this.currentPage = data.payload
 
         return this.currentPage
-      } catch (e) {
-        this.error = 'Failed to fetch page'
+      } catch (error) {
+        console.error('Static page fetch error:', error)
+
+        this.currentPage = null
+
+        this.pageError =
+          error?.response?.data?.message ||
+          error?.message ||
+          'Failed to fetch page'
+
         return null
       } finally {
-        this.loading = false
+        this.pageLoading = false
       }
     },
 
-    async fetchSocialLinks() {
-      // ✅ add
-      this.error = null
+    async fetchSocialLinks(langId = null) {
+      this.socialLinksLoading = true
+
       try {
-        const { data } = await axios.get('/social-links')
-        if (data.status === 'OK') {
-          this.socialLinks = Array.isArray(data.payload) ? data.payload : []
-        }
-      } catch (e) {
-        // don't hard-fail footer because socials died
+        const { data } = await axios.get('/social-links', {
+          params: langId
+            ? {
+                lang_id: langId,
+              }
+            : {},
+        })
+
+        this.socialLinks =
+          data?.status === 'OK' && Array.isArray(data?.payload)
+            ? data.payload
+            : []
+
+        return this.socialLinks
+      } catch (error) {
+        console.error('Social links fetch error:', error)
+
         this.socialLinks = []
+
+        return []
+      } finally {
+        this.socialLinksLoading = false
       }
+    },
+
+    clearCurrentPage() {
+      this.currentPage = null
+      this.pageError = null
     },
   },
 })

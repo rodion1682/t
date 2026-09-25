@@ -1,358 +1,553 @@
 <template>
-  <div class="static">
-    <div class="static__inner _cnt">
-      <LoadingSpinner v-if="loading" class="static__loading" />
-      <div v-else-if="error" class="static__error _text-error">
-        {{ error }}
+  <main class="static-page">
+    <div class="static-page__container _cnt">
+      <div v-if="loading" class="static-page__state">
+        <LoadingSpinner />
       </div>
-      <div v-else-if="currentPage" class="static__body">
-        <div class="static__title _h2">{{ currentPage.title }}</div>
-        <div v-html="sanitizedContent" class="static__contet"></div>
+      <div v-else-if="error" class="static-page__state">
+        <div class="static-page__error _text-error">
+          {{ error }}
+        </div>
+
+        <button type="button" class="static-page__retry" @click="fetchPage">
+          {{ $t('Try again') }}
+        </button>
       </div>
+
+      <template v-else-if="currentPage">
+        <header class="static-page__header">
+          <RouterLink
+            :to="{ name: 'HomePage' }"
+            class="static-page__breadcrumb"
+          >
+            {{ $t('Home') }}
+          </RouterLink>
+
+          <h1 class="static-page__title">
+            {{ currentPage.title }}
+          </h1>
+
+          <div v-if="pageHeader" class="static-page__updated">
+            {{ pageHeader }}
+          </div>
+        </header>
+
+        <article class="static-page__document">
+          <div class="static-page__content" v-html="sanitizedContent" />
+        </article>
+      </template>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup>
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import { useStaticStore } from '@/stores/static'
 import { computed, watch } from 'vue'
+
 import { useRoute, useRouter } from 'vue-router'
+
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+
+import { useLanguageStore } from '@/stores/language'
+import { useStaticStore } from '@/stores/static'
 
 const route = useRoute()
 const router = useRouter()
+
 const staticStore = useStaticStore()
 
-const loading = computed(() => staticStore.loading)
-const error = computed(() => staticStore.error)
+const languageStore = useLanguageStore()
+
+const loading = computed(() => staticStore.pageLoading)
+
+const error = computed(() => staticStore.pageError)
+
 const currentPage = computed(() => staticStore.currentPage)
 
-const sanitizedContent = computed(() => {
-  if (!currentPage.value?.content) return ''
+const pageHeader = computed(() => {
+  return String(currentPage.value?.header || '').trim()
+})
 
-  let content = currentPage.value.content
+const sanitizedContent = computed(() => {
+  if (!currentPage.value?.content) {
+    return ''
+  }
+
+  let content = String(currentPage.value.content)
+
+  content = content
     .replace(/&ldquo;/g, '"')
     .replace(/&rdquo;/g, '"')
     .replace(/&lsquo;/g, "'")
     .replace(/&rsquo;/g, "'")
     .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&hellip;/g, '...')
+    .replace(/&hellip;/g, '…')
     .replace(/&mdash;/g, '—')
     .replace(/&ndash;/g, '–')
 
-  // turn <br><br> into a spacer div
   content = content.replace(
-    /(<br\s*\/?>\s*){2,}/gi,
-    '<div class="br-space"></div>',
+    /<table([^>]*)>/gi,
+    '<div class="static-table"><table$1>',
   )
 
-  // Wrap tables in scroll container
-  content = content.replace(
-    /<table[^>]*>/gi,
-    '<div class="table-scroll-wrapper"><table>',
-  )
   content = content.replace(/<\/table>/gi, '</table></div>')
 
   return content
 })
 
 const fetchPage = async () => {
-  const slug = route.params.slug
+  const slug = route.params.slug || route.params.id
+
   if (!slug) {
-    router.push({ name: 'NotFound' })
+    await router.replace({
+      name: 'NotFound',
+    })
+
     return
   }
 
-  try {
-    await staticStore.fetchPage({ slug })
-    if (!staticStore.currentPage) router.push({ name: 'NotFound' })
-  } catch (e) {
-    router.push({ name: 'NotFound' })
+  if (!languageStore.currentLanguageId) {
+    await languageStore.initializeLanguages()
+  }
+
+  const page = await staticStore.fetchPage({
+    slug,
+    langId: languageStore.currentLanguageId,
+  })
+
+  if (!page) {
+    if (!staticStore.pageError) {
+      await router.replace({
+        name: 'NotFound',
+      })
+    }
   }
 }
 
-watch(() => route.params.slug, fetchPage, { immediate: true })
+watch(
+  [
+    () => route.params.slug,
+    () => route.params.id,
+    () => languageStore.currentLanguageId,
+  ],
+  async ([slug, id, langId], [oldSlug, oldId, oldLangId] = []) => {
+    if (slug === oldSlug && id === oldId && langId === oldLangId) {
+      return
+    }
+
+    await fetchPage()
+  },
+  {
+    immediate: true,
+  },
+)
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/fonts' as *;
 @use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
-.static {
-  position: relative;
-  flex: 1 1 100%;
+.static-page {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  @include adaptiveValue('padding-top', 20, 25);
-  @include adaptiveValue('padding-bottom', 130, 25);
-  &__inner {
-    width: 100%;
-    flex: 1 1 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
 
-  &__loading,
-  &__error {
-    text-align: center;
-  }
+  width: 100%;
 
-  &__body {
+  @include adaptiveValue('padding-top', 50, 25);
+
+  @include adaptiveValue('padding-bottom', 100, 25);
+
+  &__container {
     width: 100%;
   }
 
-  &__title {
-    text-align: center;
+  &__header {
+    width: 100%;
+  }
+
+  &__breadcrumb {
+    display: block;
+
+    width: fit-content;
+
+    @include ibm-12-700;
+
+    color: var(--makara);
+
     text-transform: uppercase;
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 18);
+
+    transition: color 0.3s ease;
+
+    @media (any-hover: hover) {
+      &:hover {
+        color: var(--copper);
+      }
     }
   }
 
-  &__contet {
-    white-space: pre-line;
-    color: var(--secondary-color);
-    font-weight: 400;
-    line-height: 150%;
-    font-family: var(--font-inter);
-    font-size: 16px;
+  &__title {
+    margin: 11px 0 0;
+
+    @include sg-44-700;
+
+    color: var(--cod-gray);
+
+    text-transform: uppercase;
+  }
+
+  &__updated {
+    @include ibm-14-400;
+
+    color: var(--makara);
+  }
+
+  &__document {
+    width: 100%;
+
+    margin-top: 30px;
+
+    @include adaptiveValue('padding', 48, 15);
+
+    @include adaptiveValue('border-radius', 39, 20);
+
+    background: var(--double-spanish-white);
+
+    box-shadow: 0 8px 30px var(--cod-gray-07);
+  }
+
+  &__content {
+    max-width: 100%;
+
+    @include ibm-15-400;
+
+    color: var(--armadillo);
+
+    :deep(*) {
+      box-sizing: border-box;
+
+      max-width: 100%;
+
+      overflow-wrap: anywhere;
+    }
+
+    :deep(p) {
+      margin: 0 0 10px;
+
+      padding: 0;
+
+      background: transparent !important;
+
+      font-family: var(--font-ibm-plex) !important;
+
+      font-size: 15px !important;
+      font-weight: 400 !important;
+      line-height: 1.65 !important;
+
+      color: var(--armadillo) !important;
+
+      text-align: left !important;
+    }
+    :deep(> p) {
+      margin-bottom: 14px;
+    }
 
     :deep(h1),
     :deep(h2),
     :deep(h3),
-    :deep(h4) {
-      color: var(--secondary-color) !important;
-      font-family: var(--font-inter) !important;
-      font-weight: 400 !important;
-      text-transform: capitalize !important;
+    :deep(h4),
+    :deep(h5),
+    :deep(h6) {
+      padding: 0;
 
-      &:first-child {
-        margin-top: 0;
-      }
-    }
+      font-family: var(--font-space-grotesk) !important;
 
-    :deep(h1) {
-      @include adaptiveValue('font-size', 32, 24);
-      line-height: 120%;
-      @include adaptiveValue('margin-top', 32, 18);
-      @include adaptiveValue('margin-bottom', 32, 18);
-    }
+      font-weight: 700 !important;
 
-    :deep(h2) {
-      @include adaptiveValue('font-size', 24, 20);
-      line-height: 120%;
-      @include adaptiveValue('margin-top', 32, 18);
-      @include adaptiveValue('margin-bottom', 24, 14);
-    }
+      color: var(--cod-gray) !important;
 
-    :deep(h3) {
-      @include adaptiveValue('font-size', 20, 18);
-      line-height: 120%;
-      @include adaptiveValue('margin-top', 24, 16);
-      @include adaptiveValue('margin-bottom', 16, 12);
-    }
-
-    :deep(h4) {
-      @include adaptiveValue('font-size', 18, 16);
-      line-height: 120%;
-      @include adaptiveValue('margin-top', 16, 12);
-      @include adaptiveValue('margin-bottom', 16, 12);
-    }
-
-    :deep(p) {
-      display: inline-block;
-      margin-bottom: 15px;
-      color: inherit !important;
-      font-family: inherit !important;
-      font-size: inherit !important;
-      font-weight: inherit !important;
-      line-height: inherit !important;
-      background: transparent !important;
       text-align: left !important;
     }
 
-    :deep(span) {
-      color: inherit !important;
-      font-family: inherit !important;
-      font-size: inherit !important;
-      font-weight: inherit !important;
-      line-height: inherit !important;
-      background: transparent !important;
-      text-transform: none !important;
+    :deep(h1) {
+      margin: 30px 0 12px;
+
+      font-size: 22px !important;
+      line-height: 1.25 !important;
+    }
+
+    :deep(h2) {
+      margin: 30px 0 12px;
+
+      font-size: 20px !important;
+      line-height: 1.25 !important;
+    }
+
+    :deep(h3) {
+      margin: 26px 0 10px;
+
+      font-size: 18px !important;
+      line-height: 1.3 !important;
+    }
+
+    :deep(h4),
+    :deep(h5),
+    :deep(h6) {
+      margin: 22px 0 8px;
+
+      font-size: 16px !important;
+      line-height: 1.35 !important;
+    }
+    :deep(> h1:first-child),
+    :deep(> h2:first-child),
+    :deep(> h3:first-child) {
+      margin-top: 0;
     }
 
     :deep(ul),
     :deep(ol) {
-      @include adaptiveValue('margin-bottom', 24, 16);
+      display: flex;
+      flex-direction: column;
+
+      gap: 4px;
+
+      margin: 0 0 12px;
+
+      padding-left: 22px;
+
+      font-family: var(--font-ibm-plex);
+
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1.65;
+
+      color: var(--armadillo);
     }
 
     :deep(ul) {
-      list-style: none;
-      padding-left: 0;
-    }
-
-    :deep(ul li) {
-      position: relative;
-      padding-left: 20px;
-      list-style: none;
-      @include adaptiveValue('margin-bottom', 8, 6);
-
-      &::before {
-        content: '';
-        position: absolute;
-        left: 3px;
-        top: 9px;
-        width: 5px;
-        height: 5px;
-        background-color: var(--secondary-color);
-        border-radius: 50%;
-        opacity: 0.8;
-      }
+      list-style: disc;
     }
 
     :deep(ol) {
-      padding-left: 22px;
-    }
-
-    :deep(ol li) {
       list-style: decimal;
-      @include adaptiveValue('margin-bottom', 8, 6);
     }
 
     :deep(li) {
+      display: list-item;
+
+      padding: 0;
+
+      color: var(--armadillo) !important;
+    }
+
+    :deep(li::marker) {
+      color: var(--cod-gray);
+    }
+
+    :deep(span) {
+      background: transparent !important;
+
+      font-family: var(--font-ibm-plex) !important;
+
       color: inherit !important;
-      font-family: inherit !important;
-      font-size: inherit !important;
-      line-height: inherit !important;
-    }
-
-    :deep(a),
-    :deep(a span) {
-      color: var(--primary-color);
-      border-bottom: 1px solid inherit;
-      transition: color 0.3s ease 0s;
-
-      @media (any-hover: hover) {
-        &:hover {
-          color: var(--link-color) !important;
-        }
-      }
-    }
-
-    :deep(blockquote) {
-      border-left: 4px solid var(--link-color);
-      padding-left: 16px;
-      font-style: italic;
-      @include adaptiveValue('margin-top', 24, 16);
-      @include adaptiveValue('margin-bottom', 24, 16);
-    }
-
-    :deep(pre) {
-      overflow: auto;
-      background: var(--bg-secondary-color);
-      color: var(--primary-color);
-      border-radius: 12px;
-      @include adaptiveValue('padding', 16, 12);
-      @include adaptiveValue('margin-top', 24, 16);
-      @include adaptiveValue('margin-bottom', 24, 16);
-    }
-
-    :deep(code) {
-      background: var(--bg-secondary-color);
-      color: var(--hint-primary-color);
-      border-radius: 8px;
-      padding: 2px 8px;
     }
 
     :deep(strong),
     :deep(b) {
-      text-transform: uppercase !important;
-      font-weight: 500 !important;
-      color: var(--secondary-color) !important;
+      font-weight: 700 !important;
+
+      color: var(--cod-gray) !important;
     }
 
-    :deep(em) {
-      font-style: italic !important;
+    :deep(em),
+    :deep(i) {
+      font-style: italic;
     }
 
-    :deep(.br-space) {
-      display: block;
+    :deep(a) {
+      color: var(--copper) !important;
 
-      &:not(:last-child) {
-        margin-bottom: 15px;
+      border-bottom: 1px solid transparent;
+
+      transition:
+        color 0.3s ease,
+        border-color 0.3s ease;
+
+      @media (any-hover: hover) {
+        &:hover {
+          color: var(--rope) !important;
+
+          border-color: currentColor;
+        }
       }
     }
 
-    :deep(.table-scroll-wrapper) {
+    :deep(hr) {
+      margin: 28px 0;
+
+      border: 0;
+
+      border-top: 1px solid var(--cod-gray-16);
+    }
+
+    :deep(img) {
+      display: block;
+
+      max-width: 100%;
+      height: auto;
+
+      margin: 18px 0;
+
+      border-radius: 16px;
+    }
+
+    :deep(.static-table) {
       width: 100%;
+
+      margin: 20px 0;
+
       overflow-x: auto;
-      @include adaptiveValue('margin-top', 24, 16);
-      @include adaptiveValue('margin-bottom', 24, 16);
+
+      border: 1px solid var(--cod-gray-16);
+
+      border-radius: 14px;
     }
 
     :deep(table) {
       width: 100%;
+
+      min-width: 600px;
+
       border-collapse: collapse;
-      border: 1px solid var(--border-primary-color);
+
       background: transparent;
-      color: var(--secondary-color) !important;
+    }
+
+    :deep(th),
+    :deep(td) {
+      padding: 12px 14px;
+
+      border: 1px solid var(--cod-gray-16);
+
+      font-family: var(--font-ibm-plex);
+
+      font-size: 14px;
+      line-height: 1.5;
+
+      color: var(--armadillo);
+
+      text-align: left;
     }
 
     :deep(th) {
-      border: 1px solid var(--border-primary-color);
-      background: transparent;
-      text-align: left;
-      font-weight: 500;
-      color: var(--secondary-color) !important;
+      font-weight: 700;
 
-      @include adaptiveValue('font-size', 18, 14);
-      @include adaptiveValue('padding-top', 16, 10);
-      @include adaptiveValue('padding-bottom', 16, 10);
-      @include adaptiveValue('padding-left', 16, 10);
-      @include adaptiveValue('padding-right', 16, 10);
+      color: var(--cod-gray);
+
+      background: var(--merino);
     }
 
-    :deep(td) {
-      border: 1px solid var(--border-color);
-      color: var(--secondary-color) !important;
+    :deep(blockquote) {
+      margin: 20px 0;
 
-      @include adaptiveValue('font-size', 18, 14);
-      @include adaptiveValue('padding-top', 16, 10);
-      @include adaptiveValue('padding-bottom', 16, 10);
-      @include adaptiveValue('padding-left', 16, 10);
-      @include adaptiveValue('padding-right', 16, 10);
+      padding: 16px 20px;
+
+      border-left: 3px solid var(--copper);
+
+      border-radius: 0 14px 14px 0;
+
+      background: var(--merino);
     }
 
-    :deep(tr:nth-child(even)),
-    :deep(tr:hover) {
-      background: var(--bg-secondary-color);
+    :deep(blockquote p:last-child) {
+      margin-bottom: 0;
+    }
+  }
+
+  &__state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+
+    width: 100%;
+    min-height: 420px;
+  }
+
+  &__error {
+    text-align: center;
+  }
+
+  &__retry {
+    margin-top: 18px;
+
+    padding: 11px 22px;
+
+    border: 0;
+    border-radius: 999px;
+
+    background: var(--copper);
+
+    @include ibm-12-700;
+
+    color: var(--janna);
+
+    cursor: pointer;
+
+    transition: background-color 0.3s ease;
+
+    @media (any-hover: hover) {
+      &:hover {
+        background: var(--tuscany);
+      }
+    }
+  }
+}
+
+@media (max-width: $md2) {
+  .static-page {
+    &__document {
+      border-radius: 26px;
+    }
+  }
+}
+
+@media (max-width: $md3) {
+  .static-page {
+    &__document {
+      margin-top: 24px;
+
+      border-radius: 22px;
     }
 
-    @media (max-width: 768px) {
-      :deep(table) {
-        display: block;
-        overflow-x: auto;
-        white-space: normal;
-        table-layout: fixed;
-        min-width: 100%;
-        font-size: 12px;
+    &__content {
+      :deep(p),
+      :deep(ul),
+      :deep(ol) {
+        font-size: 14px !important;
       }
 
-      :deep(th),
-      :deep(td) {
-        min-width: 240px;
-        white-space: normal;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        padding: 6px 8px;
+      :deep(h2) {
+        margin-top: 25px;
+
+        font-size: 18px !important;
       }
+    }
+  }
+}
+
+@media (max-width: $md5) {
+  .static-page {
+    &__document {
+      margin-right: -4px;
+      margin-left: -4px;
+
+      border-radius: 18px;
+    }
+
+    &__updated {
+      margin-top: 9px;
     }
   }
 }
