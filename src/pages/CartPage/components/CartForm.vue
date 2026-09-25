@@ -1,1209 +1,793 @@
 <template>
-  <div class="checkout">
-    <div class="checkout__title _h4">
-      {{ $t('Checkout') }}
-    </div>
-    <div class="checkout__item">
-      <div class="checkout__label">{{ $t('Total to pay:') }}</div>
-      <div class="checkout__prices">
-        <PriceFormatter
-          skip-conversion
-          size="size-16"
-          reverse
-          class="checkout__coin"
-          :price="cartTotalInternal"
-        />
-        <PriceFormatter
-          size="size-16"
-          is-currency
-          reverse
-          raw-fiat
-          skip-conversion
-          class="checkout__fiat"
-          :price="cartTotalFiat"
-          :currency-code="cartFiatCurrency"
-        />
-      </div>
-    </div>
-    <div v-if="false" class="checkout__item">
-      <div class="checkout__label">{{ $t('Items:') }}</div>
-      <div class="checkout__value">{{ cartItemsCount }}</div>
-    </div>
-    <div class="checkout__inputs">
-      <div class="checkout__box">
-        <BaseInput
-          v-if="IS_COMBINED_NAME_AND_SURNAME"
-          v-model="localForm.fullName"
-          :label="$t('Full name')"
-          :error="errors.fullName"
-          class="checkout__input"
-          name="fullName"
-          autocomplete="name"
-          :disabled="isSubmitting"
-          @blur="validateField('fullName')"
-        />
+  <aside class="checkout">
+    <h2 class="checkout__title">
+      {{ $t('Confirm your order') }}
+    </h2>
 
-        <template v-else>
-          <BaseInput
-            v-model="localForm.name"
-            :label="$t('Name')"
-            :error="errors.name"
-            class="checkout__input"
-            name="name"
-            autocomplete="given-name"
-            :disabled="isSubmitting"
-            @blur="validateField('name')"
-          />
-          <BaseInput
-            v-model="localForm.surname"
-            :label="$t('Surname')"
-            :error="errors.surname"
-            class="checkout__input"
-            name="surname"
-            autocomplete="family-name"
-            :disabled="isSubmitting"
-            @blur="validateField('surname')"
-          />
-        </template>
-        <BaseInput
-          v-model="localForm.email"
-          :label="$t('E-mail')"
-          type="email"
-          name="email"
-          autocomplete="email"
-          :error="errors.email"
-          class="checkout__input"
-          :disabled="isSubmitting"
-          @blur="validateField('email')"
-        />
-
-        <BaseInput
-          v-model="localForm.phone"
-          :label="$t('Phone')"
-          type="tel"
-          name="phone"
-          inputmode="tel"
-          autocomplete="tel"
-          :error="errors.phone"
-          class="checkout__input"
-          :disabled="isSubmitting"
-          @blur="validateField('phone')"
-        />
-      </div>
-      <BaseInput
-        v-model="localForm.tradeLink"
-        :label="$t('Steam Trade URL')"
-        :error="errors.tradeLink"
-        class="checkout__input checkout__input_trade"
-        :disabled="isSubmitting"
-        @blur="validateField('tradeLink')"
-      />
-      <div class="checkout__box">
-        <BaseSelect
-          v-model="localForm.country"
-          :options="countries"
-          option-label="name"
-          option-value="value"
-          :label="$t('Country')"
-          :error="errors.country"
-          class="checkout__input"
-          :disabled="isSubmitting"
-        />
-        <BaseInput
-          v-model="localForm.city"
-          :label="$t('City')"
-          :error="errors.city"
-          class="checkout__input"
-          :disabled="isSubmitting"
-          @blur="validateField('city')"
-        />
-        <BaseInput
-          v-model="localForm.address"
-          :label="$t('Address line')"
-          :error="errors.address"
-          class="checkout__input"
-          :disabled="isSubmitting"
-          @blur="validateField('address')"
-        />
-        <BaseInput
-          v-model="localForm.postCode"
-          :label="$t('Postcode')"
-          :error="errors.postCode"
-          class="checkout__input checkout__input_small"
-          :disabled="isSubmitting"
-          @blur="validateField('postCode')"
-        />
-      </div>
-    </div>
-    <!-- <BaseCheckbox
-
-      v-model="localForm.acceptWithdrawalWaiver"
-      :error="errors.acceptWithdrawalWaiver"
-      class="checkout__checkbox"
-      :disabled="isSubmitting"
-    >
-      {{
-        $t(
-          'I agree to immediate delivery and accept that I lose my 14-day right of withdrawal once delivery starts.',
-        )
-      }}
-    </BaseCheckbox> -->
-    <div class="checkout__bottom">
-      <BaseCheckbox
-        v-model="localForm.acceptTerms"
-        :error="errors.acceptTerms"
-        class="checkout__checkbox"
-        :disabled="isSubmitting"
-        terms
-      />
+    <!-- ORDER -->
+    <div class="checkout__order">
       <div
-        v-if="formattedRequisites"
-        class="checkout__requisites"
-        v-html="formattedRequisites"
-      />
+        v-for="row in cartStore.items"
+        :key="row.item_id"
+        class="checkout__order-item"
+      >
+        <div class="checkout__order-info">
+          <div class="checkout__order-title">
+            {{ getTitle(row.item) }}
+          </div>
+
+          <div v-if="getExterior(row.item)" class="checkout__order-exterior">
+            {{ getExterior(row.item) }}
+          </div>
+        </div>
+
+        <PriceFormatter
+          :price="getPrice(row.item)"
+          reverse
+          skip-conversion
+          is-currency
+          class="checkout__order-price"
+        />
+      </div>
     </div>
+
+    <!-- TOTAL -->
+    <div class="checkout__summary">
+      <div class="checkout__count">
+        {{
+          $t('{count} items in the cart', {
+            count: cartStore.cartItemsCount,
+          })
+        }}
+      </div>
+
+      <div class="checkout__total">
+        <span class="checkout__total-label">
+          {{ $t('Total:') }}
+        </span>
+
+        <PriceFormatter
+          :price="cartStore.cartTotal"
+          reverse
+          skip-conversion
+          is-currency
+          class="checkout__total-price"
+        />
+      </div>
+    </div>
+
+    <!-- STEAM TRADE LINK -->
+    <div class="checkout__section">
+      <div class="checkout__section-head">
+        <div class="checkout__section-title">
+          {{ $t('Steam Trade URL') }}
+        </div>
+
+        <span class="checkout__required">
+          {{ $t('Required') }}
+        </span>
+      </div>
+
+      <BaseInput
+        v-model="tradeLink"
+        class="checkout__trade"
+        :error="tradeLinkError"
+        :disabled="isSubmitting"
+        :placeholder="$t('Paste your Steam trade link')"
+        @blur="saveTradeLink"
+        @input="clearTradeLinkError"
+      />
+
+      <p class="checkout__hint">
+        {{ $t('We use this link to deliver your purchased skins.') }}
+      </p>
+    </div>
+
+    <div v-if="!hasEnoughBalance" class="checkout__warning">
+      <div class="checkout__warning-head">
+        <span class="checkout__warning-icon"> ! </span>
+
+        <strong>
+          {{ $t('Not enough funds!') }}
+        </strong>
+      </div>
+
+      <p class="checkout__warning-text">
+        {{ $t('You need') }}
+
+        <PriceFormatter
+          :price="missingAmount"
+          reverse
+          skip-conversion
+          is-currency
+          class="checkout__warning-price"
+        />
+
+        {{ $t('more to pay for this order.') }}
+      </p>
+
+      <BaseButton
+        type="button"
+        class="checkout__topup"
+        @click="emit('top-up-click')"
+      >
+        {{ $t('Top up balance') }}
+      </BaseButton>
+    </div>
+
+    <!-- ERROR -->
     <div v-if="submitError" class="checkout__error _text-error">
       {{ submitError }}
     </div>
-    <div v-if="balanceError" class="checkout__error _text-error">
-      {{ balanceError }}
-    </div>
 
-    <div class="checkout__methods">
-      <div class="checkout__method">
-        <BaseButton
-          type="button"
-          variant="primary"
-          class="checkout__submit"
-          :loading="isSubmitting && selectedPaymentMethod === 'balance'"
-          :disabled="isSubmitting || !isFormComplete || !hasEnoughBalance"
-          @click="submitBalancePayment"
-        >
-          <template v-if="isSubmitting && selectedPaymentMethod === 'balance'">
-            {{ $t('Paying') }}...
-          </template>
-          <template v-else>
-            <PriceFormatter
-              v-if="false"
-              :price="userBalance"
-              class="checkout__method-balance"
-            />
+    <!-- PAY FROM BALANCE -->
+    <BaseButton
+      type="button"
+      class="checkout__pay"
+      :disabled="!canSubmit || isSubmitting"
+      @click="submit"
+    >
+      <template v-if="isSubmitting">
+        {{ $t('Processing...') }}
+      </template>
 
-            <span class="checkout__text">
-              {{ $t('Pay with Balance') }}
-            </span>
-          </template>
-        </BaseButton>
-        <template
-          v-if="authStore.isAuthenticated && !hasEnoughBalance && false"
-        >
-          <div class="checkout__warn warn">
-            <div class="warn__image _ibg-contain">
-              <img src="@/assets/img/icons/warn.svg" alt="" />
-            </div>
-
-            <span class="warn__text">
-              {{ $t('Not enough balance funds. Please') }}
-
-              <RouterLink
-                class="warn__link _link"
-                :to="{ name: 'account-balance' }"
-                @click="goToTopUp"
-              >
-                {{ $t('top up') }}
-              </RouterLink>
-            </span>
-          </div>
-        </template>
-      </div>
-      <div
-        v-for="(method, index) in availablePaymentMethods"
-        :key="method.code"
-        class="checkout__method"
-        :class="{
-          checkout__method_full: index === 0,
-          checkout__method_image: !!method.image,
-        }"
-      >
-        <BaseButton
-          type="button"
-          :variant="index < 2 ? 'white-bordered' : 'white'"
-          class="checkout__submit"
-          :loading="isSubmitting && selectedPaymentMethod === method.code"
-          :disabled="isSubmitting || !isFormComplete"
-          @click="submit(method.code)"
-        >
-          <span v-if="method.image" class="checkout__submit-image _ibg-contain">
-            <img :src="method.image" :alt="method.title" />
-          </span>
-          <span v-else>
-            {{ method.title }}
-          </span>
-        </BaseButton>
-      </div>
-    </div>
-  </div>
+      <template v-else>
+        {{ $t('Pay from balance') }}
+      </template>
+    </BaseButton>
+  </aside>
 </template>
 
 <script setup>
+import { computed, onMounted, ref, watch } from 'vue'
+
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 
-import PriceFormatter from '@/components/PriceFormatter.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
-import BaseCheckbox from '@/components/base/BaseCheckbox.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
-import BaseSelect from '@/components/base/BaseSelect.vue'
+import PriceFormatter from '@/components/PriceFormatter.vue'
 
-import { useStaticPages } from '@/composables/useStaticPages'
 import { useToast } from '@/composables/useToast'
+
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
-import { useCountriesStore } from '@/stores/countries'
 import { useCurrencyStore } from '@/stores/currency'
-import { usePromoCodeStore } from '@/stores/promocode'
 import { usePurchaseStore } from '@/stores/purchase'
-import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 
-const IS_COMBINED_NAME_AND_SURNAME = false
-
-const CHECKOUT_STORAGE_KEY = 'checkout_prefill_data'
-
-const emit = defineEmits(['success-close', 'back', 'top-up-click'])
+const emit = defineEmits(['top-up-click'])
 
 const { t } = useI18n()
+
 const router = useRouter()
 const toast = useToast()
-const { ensurePages } = useStaticPages()
 
 const authStore = useAuthStore()
 const cartStore = useCartStore()
-const countryStore = useCountriesStore()
 const purchaseStore = usePurchaseStore()
-const settingsStore = useSettingsStore()
-const currencyStore = useCurrencyStore()
-const promoCodeStore = usePromoCodeStore()
 const userStore = useUserStore()
+const currencyStore = useCurrencyStore()
 
 const { userBalance } = storeToRefs(userStore)
-const { cartItemsCount } = storeToRefs(cartStore)
 
 const isSubmitting = ref(false)
-const selectedPaymentMethod = ref(null)
+
+const tradeLink = ref('')
+const tradeLinkError = ref('')
 const submitError = ref('')
-const balanceError = ref('')
 
-const localForm = reactive({
-  tradeLink: '',
-  fullName: '',
-  name: '',
-  surname: '',
-  email: '',
-  phone: '',
-  country: '',
-  city: '',
-  address: '',
-  postCode: '',
-  // acceptWithdrawalWaiver: false,
-  acceptTerms: false,
+/* =========================
+   BALANCE
+========================= */
+
+const balance = computed(() => {
+  const value = Number(userBalance.value ?? 0)
+
+  return Number.isFinite(value) ? value : 0
 })
 
-const errors = reactive({
-  tradeLink: '',
-  fullName: '',
-  name: '',
-  surname: '',
-  email: '',
-  phone: '',
-  country: '',
-  city: '',
-  address: '',
-  postCode: '',
-  // acceptWithdrawalWaiver: '',
-  acceptTerms: '',
+const total = computed(() => {
+  const value = Number(cartStore.cartTotal ?? 0)
+
+  return Number.isFinite(value) ? value : 0
 })
 
-const norm = value => String(value ?? '').trim()
-
-const emailRe = /^\S+@\S+\.\S+$/
-const nameRe = /^[\p{L}][\p{L}\p{M}' -]{1,}$/u
-
-const savedFields = ['country', 'city', 'address', 'postCode', 'tradeLink']
-
-const goToTopUp = () => {
-  emit('top-up-click')
-}
-
-const formattedRequisites = computed(() => {
-  return settingsStore.requisites
-    ? settingsStore.requisites.replace(/\n/g, '<br>')
-    : ''
-})
-
-const splitFullName = fullName => {
-  const parts = norm(fullName).split(/\s+/).filter(Boolean)
-
-  return {
-    name: parts[0] || '',
-    surname: parts.slice(1).join(' ') || '',
-  }
-}
-
-const getNameData = () => {
-  if (IS_COMBINED_NAME_AND_SURNAME) {
-    return splitFullName(localForm.fullName)
-  }
-
-  return {
-    name: norm(localForm.name),
-    surname: norm(localForm.surname),
-  }
-}
-
-const getSavedCheckoutData = () => {
-  try {
-    return JSON.parse(localStorage.getItem(CHECKOUT_STORAGE_KEY)) || {}
-  } catch {
-    return {}
-  }
-}
-
-const saveCheckoutData = () => {
-  const data = getSavedCheckoutData()
-
-  savedFields.forEach(field => {
-    data[field] = localForm[field]
-  })
-
-  localStorage.setItem(CHECKOUT_STORAGE_KEY, JSON.stringify(data))
-}
-
-const getProfileValue = (user, field) => {
-  if (!user) return ''
-
-  const map = {
-    tradeLink: user.steam_trade_link || user.tradeLink || user.trade_url,
-
-    country: user.country?.id || user.country_id || user.country,
-
-    city: user.city,
-    address: user.address,
-    postCode: user.zip || user.post_code,
-  }
-
-  return map[field] ?? ''
-}
-
-const getUserOrSavedValue = (user, field) => {
-  const profileValue = getProfileValue(user, field)
-
-  if (norm(profileValue)) {
-    return profileValue
-  }
-
-  const savedData = getSavedCheckoutData()
-
-  return savedData[field] ?? ''
-}
-
-const isPlaceholderValue = (value, key) => {
-  const currentValue = norm(value).toLowerCase()
-  const placeholder = norm(t(key)).toLowerCase()
-
-  return Boolean(currentValue && currentValue === placeholder)
-}
-
-const isLegacyPlaceholder = (value, type) => {
-  const currentValue = norm(value).toLowerCase()
-
-  if (type === 'name') {
-    return currentValue === 'name'
-  }
-
-  if (type === 'surname') {
-    return currentValue === 'surname'
-  }
-
-  return false
-}
-
-const sanitizeName = value => {
-  if (isPlaceholderValue(value, 'Name') || isLegacyPlaceholder(value, 'name')) {
-    return ''
-  }
-
-  return norm(value)
-}
-
-const sanitizeSurname = value => {
-  if (
-    isPlaceholderValue(value, 'Surname') ||
-    isLegacyPlaceholder(value, 'surname')
-  ) {
-    return ''
-  }
-
-  return norm(value)
-}
-
-const isValidPhone = phone => {
-  const normalizedPhone = norm(phone)
-  const digits = normalizedPhone.replace(/\D/g, '')
-
-  if (digits.length < 7 || digits.length > 15) {
-    return false
-  }
-
-  return /^[+0-9()\-\s]+$/.test(normalizedPhone)
-}
-
-const normCode = code => {
-  return String(code || '')
-    .toLowerCase()
-    .trim()
-}
-
-const isBalance = code => normCode(code) === 'balance'
-
-const isApplePay = code => {
-  const normalizedCode = normCode(code)
-
-  return ['apple_pay', 'apple-pay', 'applepay'].includes(normalizedCode)
-}
-
-const isGooglePay = code => {
-  const normalizedCode = normCode(code)
-
-  return ['google_pay', 'google-pay', 'googlepay'].includes(normalizedCode)
-}
-
-const getDisplayImage = method => {
-  return method?.image || null
-}
-
-const countries = computed(() => {
-  return (countryStore.countries || []).map(country => ({
-    name: country.title,
-    value: country.id,
-  }))
-})
-
-const availablePaymentMethods = computed(() => {
-  const methods =
-    settingsStore.paymentMethods ||
-    settingsStore.settings?.payment_methods ||
-    []
-
-  const currentCurrency = currencyStore.currentCurrencyCode
-
-  const filtered = methods.filter(method => {
-    if (!method.currencies?.length) {
-      return true
-    }
-
-    return method.currencies.includes(currentCurrency)
-  })
-
-  const card = filtered.filter(method => {
-    return normCode(method.code) === 'creditdebit-card'
-  })
-
-  const google = filtered.filter(method => {
-    return isGooglePay(method.code)
-  })
-
-  const apple = filtered.filter(method => {
-    return isApplePay(method.code)
-  })
-
-  const rest = filtered.filter(method => {
-    return ![
-      'balance',
-      'creditdebit-card',
-      'google-pay',
-      'google_pay',
-      'googlepay',
-      'apple-pay',
-      'apple_pay',
-      'applepay',
-    ].includes(normCode(method.code))
-  })
-
-  return [...card, ...google, ...apple, ...rest]
-    .filter(method => !isBalance(method.code))
-    .map(method => ({
-      ...method,
-      image: getDisplayImage(method),
-    }))
-})
-
-const cartResponse = computed(() => {
-  return cartStore.cartData || cartStore.cart || cartStore.cartContent || {}
-})
-
-const cartFiatCurrency = computed(() => {
-  return (
-    cartResponse.value?.fiat_currency ||
-    cartResponse.value?.currency ||
-    currencyStore.currentCurrencyCode ||
-    'EUR'
-  )
-})
-
-const cartTotalFiat = computed(() => {
-  const serverTotal = Number(
-    cartResponse.value?.total_fiat ?? cartResponse.value?.total,
-  )
-
-  if (Number.isFinite(serverTotal)) {
-    return serverTotal
-  }
-
-  return (cartStore.items || []).reduce((sum, row) => {
-    const price = Number(row.item?.fiat_price ?? row.item?.price ?? 0)
-
-    const count = Number(row.count ?? 1)
-
-    return sum + price * count
-  }, 0)
-})
-
-const cartTotalInternal = computed(() => {
-  const serverTotal = Number(cartResponse.value?.total_internal)
-
-  if (Number.isFinite(serverTotal)) {
-    return Number(serverTotal.toFixed(2))
-  }
-
-  const total = (cartStore.items || []).reduce((sum, row) => {
-    const internalPrice = Number(row.item?.internal_price ?? 0)
-    const count = Number(row.count ?? 1)
-
-    return sum + internalPrice * count
-  }, 0)
-
-  return Number(total.toFixed(2))
+const missingAmount = computed(() => {
+  return Math.max(0, total.value - balance.value)
 })
 
 const hasEnoughBalance = computed(() => {
-  return Number(userBalance.value ?? 0) >= Number(cartTotalInternal.value ?? 0)
+  return balance.value >= total.value
 })
 
-const prefillFromUser = user => {
-  const savedData = getSavedCheckoutData()
+/* =========================
+   CURRENCY
+========================= */
 
-  const name = sanitizeName(user?.name || savedData.name || '')
+const currencyCode = computed(() => {
+  return (
+    currencyStore.currentCurrency?.code || currencyStore.currency?.code || 'EUR'
+  )
+})
 
-  const surname = sanitizeSurname(user?.surname || savedData.surname || '')
+/* =========================
+   PRODUCT HELPERS
+========================= */
 
-  localForm.name = name
-  localForm.surname = surname
-  localForm.fullName = [name, surname].filter(Boolean).join(' ')
-
-  localForm.email = user?.email || savedData.email || ''
-
-  localForm.phone = user?.phone || savedData.phone || ''
-
-  localForm.tradeLink = getUserOrSavedValue(user, 'tradeLink')
-
-  localForm.country = getUserOrSavedValue(user, 'country')
-
-  localForm.city = getUserOrSavedValue(user, 'city')
-
-  localForm.address = getUserOrSavedValue(user, 'address')
-
-  localForm.postCode = getUserOrSavedValue(user, 'postCode')
-
-  localForm.acceptTerms = false
+const getTitle = item => {
+  return String(item?.title || item?.name || '')
+    .replace(/StatTrak™\s*/gi, '')
+    .replace(/Souvenir\s*/gi, '')
+    .replace(/★\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-const clearErrors = () => {
-  Object.keys(errors).forEach(key => {
-    errors[key] = ''
-  })
+const getExterior = item => {
+  const direct = item?.exterior_name || item?.exterior
 
-  submitError.value = ''
-  balanceError.value = ''
+  if (direct) {
+    return direct
+  }
+
+  const match = String(item?.title || '').match(/\(([^)]+)\)\s*$/)
+
+  return match?.[1] || item?.quality || ''
 }
 
-const validateField = field => {
-  errors[field] = ''
+const getPrice = item => {
+  const value = Number(item?.internal_price ?? item?.price ?? 0)
 
-  if (field === 'tradeLink') {
-    if (!norm(localForm.tradeLink)) {
-      errors.tradeLink = t('Steam trade link is required')
-    }
+  return Number.isFinite(value) ? value : 0
+}
 
-    return
-  }
+/* =========================
+   TRADE LINK
+========================= */
 
-  if (field === 'fullName') {
-    const { name, surname } = splitFullName(localForm.fullName)
-
-    if (!name || !surname) {
-      errors.fullName = t('Please enter your full name')
-
-      return
-    }
-
-    if (!nameRe.test(name) || !nameRe.test(surname)) {
-      errors.fullName = t('Invalid full name')
-    }
-
-    return
-  }
-
-  if (field === 'name') {
-    if (!norm(localForm.name)) {
-      errors.name = t('First name is required')
-      return
-    }
-
-    if (!nameRe.test(norm(localForm.name))) {
-      errors.name = t('Invalid name')
-    }
-
-    return
-  }
-
-  if (field === 'surname') {
-    if (!norm(localForm.surname)) {
-      errors.surname = t('Last name is required')
-      return
-    }
-
-    if (!nameRe.test(norm(localForm.surname))) {
-      errors.surname = t('Invalid surname')
-    }
-
-    return
-  }
-
-  if (field === 'email') {
-    if (!norm(localForm.email)) {
-      errors.email = t('Email is required')
-      return
-    }
-
-    if (!emailRe.test(norm(localForm.email))) {
-      errors.email = t('Invalid email format')
-    }
-
-    return
-  }
-
-  if (field === 'phone') {
-    if (!norm(localForm.phone)) {
-      errors.phone = t('Phone is required')
-      return
-    }
-
-    if (!isValidPhone(localForm.phone)) {
-      errors.phone = t('Invalid phone number')
-    }
-
-    return
-  }
-
-  if (field === 'country' && !localForm.country) {
-    errors.country = t('Country is required')
-  }
-
-  if (field === 'city' && !norm(localForm.city)) {
-    errors.city = t('City is required')
-  }
-
-  if (field === 'address' && !norm(localForm.address)) {
-    errors.address = t('Address line is required')
-  }
-
-  if (field === 'postCode' && !norm(localForm.postCode)) {
-    errors.postCode = t('Post Code is required')
-  }
-
-  // if (field === 'acceptWithdrawalWaiver' && !localForm.acceptWithdrawalWaiver) {
-  //   errors.acceptWithdrawalWaiver = t(
-  //     'You must agree to immediate delivery and acknowledge the loss of your 14-day right of withdrawal',
-  //   )
-  // }
-
-  if (field === 'acceptTerms' && !localForm.acceptTerms) {
-    errors.acceptTerms = t('You must accept the Terms of Use')
+const clearTradeLinkError = () => {
+  if (tradeLinkError.value) {
+    tradeLinkError.value = ''
   }
 }
 
-const validateForm = () => {
-  clearErrors()
+const validateTradeLink = () => {
+  const value = tradeLink.value.trim()
 
-  validateField('tradeLink')
-
-  if (IS_COMBINED_NAME_AND_SURNAME) {
-    validateField('fullName')
-  } else {
-    validateField('name')
-    validateField('surname')
-  }
-
-  validateField('email')
-  validateField('phone')
-  validateField('country')
-  validateField('city')
-  validateField('address')
-  validateField('postCode')
-  // validateField('acceptWithdrawalWaiver')
-  validateField('acceptTerms')
-
-  const hasErrors = Object.values(errors).some(Boolean)
-
-  if (hasErrors) {
-    submitError.value = t(
-      'Please fill in all required fields correctly and accept the required confirmations.',
-    )
+  if (!value) {
+    tradeLinkError.value = t('Steam Trade URL is required')
 
     return false
   }
+
+  tradeLinkError.value = ''
 
   return true
 }
 
-const isNameComplete = computed(() => {
-  if (IS_COMBINED_NAME_AND_SURNAME) {
-    const { name, surname } = splitFullName(localForm.fullName)
-
-    return nameRe.test(name) && nameRe.test(surname)
+const saveTradeLink = async () => {
+  if (!authStore.isAuthenticated || !validateTradeLink()) {
+    return false
   }
 
-  return (
-    nameRe.test(norm(localForm.name)) && nameRe.test(norm(localForm.surname))
-  )
-})
+  const value = tradeLink.value.trim()
 
-const isFormComplete = computed(() => {
-  return Boolean(
-    norm(localForm.tradeLink) &&
-    isNameComplete.value &&
-    emailRe.test(norm(localForm.email)) &&
-    isValidPhone(localForm.phone) &&
-    localForm.country &&
-    norm(localForm.city) &&
-    norm(localForm.address) &&
-    norm(localForm.postCode) &&
-    localForm.acceptTerms,
-    // localForm.acceptWithdrawalWaiver &&
-  )
-})
+  if (value === userStore.user?.steam_trade_link) {
+    return true
+  }
 
-const syncServerCartQty = async () => {
-  const rows = cartStore.items || []
+  try {
+    await userStore.updateSteamTradeLink(value)
 
-  for (const row of rows) {
-    const itemId = row.item_id
+    return true
+  } catch (error) {
+    tradeLinkError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      t('Failed to save Steam Trade URL')
 
-    const quantity = cartStore.getQty
-      ? cartStore.getQty(itemId, row.count ?? 1)
-      : Number(row.count ?? 1)
-
-    const response = await cartStore.updateQuantity(itemId, quantity)
-
-    if (!response?.success) {
-      await cartStore.fetchCartContent()
-
-      throw new Error(response?.error || 'Failed to sync cart quantities')
-    }
+    return false
   }
 }
 
-const createPurchaseData = methodCode => {
-  const { name, surname } = getNameData()
+/* =========================
+   CAN PAY
+========================= */
 
-  return {
-    steamId: userStore.user?.steamid,
-    tradeUrl: norm(localForm.tradeLink),
-
-    name: sanitizeName(name),
-    surname: sanitizeSurname(surname),
-
-    email: norm(localForm.email),
-    phone: norm(localForm.phone),
-    country: localForm.country,
-    city: norm(localForm.city),
-    address: norm(localForm.address),
-    postCode: norm(localForm.postCode),
-
-    paymentMethod: methodCode,
-    paymentType: methodCode,
-    directPayment: !isBalance(methodCode),
-
-    promocode: promoCodeStore.currentPromo?.code || null,
-  }
-}
-
-const handleSuccessfulPayment = response => {
-  saveCheckoutData()
-
-  if (response?.redirect_url) {
-    window.location.href = response.redirect_url
-    return
+const canSubmit = computed(() => {
+  if (cartStore.isEmpty) {
+    return false
   }
 
-  emit('success-close')
-
-  router.push({
-    name: 'SuccessPaymentPage',
-  })
-}
-
-const submitBalancePayment = async () => {
-  if (isSubmitting.value) return
-  if (!validateForm()) return
+  if (!tradeLink.value.trim()) {
+    return false
+  }
 
   if (!hasEnoughBalance.value) {
-    const message = t('Not enough funds')
+    return false
+  }
 
-    balanceError.value = message
-    toast.error(message)
+  return true
+})
 
+/* =========================
+   PAYLOAD
+========================= */
+
+const buildPayload = () => {
+  return {
+    steamId: userStore.user?.steamid,
+
+    tradeUrl: tradeLink.value.trim(),
+
+    paymentMethod: 'balance',
+
+    paymentType: 'balance',
+
+    directPayment: false,
+
+    currency: currencyCode.value,
+  }
+}
+
+/* =========================
+   SUBMIT
+========================= */
+
+const submit = async () => {
+  if (isSubmitting.value || cartStore.isEmpty) {
+    return
+  }
+
+  submitError.value = ''
+
+  if (!validateTradeLink()) {
+    return
+  }
+
+  if (!hasEnoughBalance.value) {
     return
   }
 
   try {
     isSubmitting.value = true
-    selectedPaymentMethod.value = 'balance'
 
-    clearErrors()
+    const tradeLinkSaved = await saveTradeLink()
 
-    await syncServerCartQty()
-
-    const response = await purchaseStore.purchaseCartItems(
-      createPurchaseData('balance'),
-    )
-
-    if (response.success) {
-      handleSuccessfulPayment(response)
+    if (!tradeLinkSaved) {
       return
     }
 
-    const message = response.error || t('An error occurred during checkout')
+    const result = await purchaseStore.purchaseCartItems(buildPayload())
 
-    balanceError.value = message
-    toast.error(message)
-  } catch (error) {
-    console.error('Balance checkout error:', error)
+    if (!result.success) {
+      throw new Error(result.error || t('An error occurred during checkout'))
+    }
 
-    const message =
-      error?.response?.data?.message ||
-      error?.message ||
-      t('An error occurred during checkout')
+    if (result.redirect_url) {
+      window.location.href = result.redirect_url
 
-    balanceError.value = message
-    toast.error(message)
-  } finally {
-    isSubmitting.value = false
-    selectedPaymentMethod.value = null
-  }
-}
-
-const submit = async methodCode => {
-  if (isSubmitting.value) return
-  if (!validateForm()) return
-
-  try {
-    isSubmitting.value = true
-    selectedPaymentMethod.value = methodCode
-
-    clearErrors()
-
-    await syncServerCartQty()
-
-    const response = await purchaseStore.purchaseCartItems(
-      createPurchaseData(methodCode),
-    )
-
-    if (response.success) {
-      handleSuccessfulPayment(response)
       return
     }
 
-    const message = response.error || t('An error occurred during checkout')
-
-    submitError.value = message
-    toast.error(message)
+    await router.push({
+      name: 'SuccessPaymentPage',
+    })
   } catch (error) {
-    console.error('Checkout error:', error)
-
-    const message =
-      error?.response?.data?.message ||
-      error?.message ||
-      t('An error occurred during checkout')
+    const message = error?.message || t('An error occurred during checkout')
 
     submitError.value = message
+
     toast.error(message)
   } finally {
     isSubmitting.value = false
-    selectedPaymentMethod.value = null
   }
 }
 
-const initCheckout = async () => {
-  await Promise.all([
-    ensurePages(),
-    settingsStore.fetchSettings(),
-    countryStore.fetchCountries(),
+/* =========================
+   USER
+========================= */
 
-    authStore.isAuthenticated ? userStore.fetchProfile?.() : Promise.resolve(),
-  ])
+const prefillUser = () => {
+  const user = userStore.user
 
-  prefillFromUser(authStore.isAuthenticated ? userStore.user : null)
+  if (!user) {
+    return
+  }
 
-  clearErrors()
-  selectedPaymentMethod.value = null
+  if (!tradeLink.value && user.steam_trade_link) {
+    tradeLink.value = user.steam_trade_link
+  }
 }
 
-onMounted(async () => {
-  await initCheckout()
-})
+const init = async () => {
+  if (authStore.isAuthenticated) {
+    await userStore.fetchProfile()
+  }
 
-watch(
-  () => localForm.country,
-  () => validateField('country'),
-)
+  prefillUser()
+}
 
-// watch(
-//   () => localForm.acceptWithdrawalWaiver,
-//   () => validateField('acceptWithdrawalWaiver'),
-// )
-
-watch(
-  () => localForm.acceptTerms,
-  () => validateField('acceptTerms'),
-)
-
-watch(() => savedFields.map(field => localForm[field]), saveCheckoutData)
+onMounted(init)
 
 watch(
   () => userStore.user,
-  user => {
-    if (!authStore.isAuthenticated) return
-
-    prefillFromUser(user)
-  },
-  {
-    deep: true,
+  () => {
+    prefillUser()
   },
 )
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
-@use '@/assets/styles/media' as *;
 @use '@/assets/styles/fonts' as *;
+@use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .checkout {
-  background-color: var(--bg-primary-color);
-  border: 1px solid var(--border-primary-color);
-  @include adaptiveValue('border-radius', 20, 10);
-  @include adaptiveValue('padding', 40, 10);
+  position: sticky;
+
+  top: 90px;
+
+  padding: 30px;
+
+  border-radius: 30px;
+
+  background: var(--double-spanish-white);
+
+  /* =========================
+     TITLE
+  ========================= */
+
   &__title {
+    margin: 0 0 26px;
+
+    @include ibm-14-700;
+
+    color: var(--cod-gray);
+
     text-transform: uppercase;
-    color: var(--secondary-color);
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 30, 18);
-    }
+    letter-spacing: 0.04em;
   }
 
-  &__item {
+  /* =========================
+     ORDER
+  ========================= */
+
+  &__order {
     display: flex;
-    gap: 20px;
+    flex-direction: column;
+
+    gap: 18px;
+
+    padding-bottom: 24px;
+
+    border-bottom: 1px solid var(--cod-gray-16);
+  }
+
+  &__order-item {
+    display: flex;
+    align-items: flex-start;
     justify-content: space-between;
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 30, 18);
-    }
+
+    gap: 20px;
   }
 
-  &__label {
+  &__order-info {
+    min-width: 0;
   }
 
-  &__prices {
+  &__order-title {
+    overflow: hidden;
+
+    @include ibm-12-400;
+
+    color: var(--cod-gray);
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
-  &__coin {
-    &:not(:last-child) {
-      margin-bottom: 10px;
-    }
+  &__order-exterior {
+    margin-top: 4px;
+
+    @include ibm-12-700;
+
+    color: var(--kelp);
   }
 
-  &__fiat {
+  &__order-price {
+    flex: 0 0 auto;
+
+    color: var(--cod-gray);
   }
 
-  &__inputs {
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 20);
-    }
+  /* =========================
+     SUMMARY
+  ========================= */
+
+  &__summary {
+    padding: 22px 0;
+
+    border-bottom: 1px solid var(--cod-gray-16);
   }
 
-  &__box {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    @include adaptiveValue('column-gap', 20, 10);
-    @include adaptiveValue('row-gap', 20, 18);
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 20, 18);
-    }
-    @media (max-width: $md2) {
-      grid-template-columns: repeat(1, 1fr);
-    }
-    @media (max-width: $md3) {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    @media (max-width: $md5) {
-      grid-template-columns: repeat(1, 1fr);
-    }
+  &__count {
+    margin-bottom: 8px;
+
+    @include ibm-12-400;
+
+    color: var(--makara);
   }
 
-  &__input {
-    &_small {
-    }
-    &_trade {
-      width: 100%;
-      &:not(:last-child) {
-        @include adaptiveValue('margin-bottom', 20, 18);
-      }
-    }
+  &__total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
   }
 
-  &__bottom {
-    display: grid;
+  &__total-label {
+    @include ibm-13-700;
 
-    grid-template-columns: repeat(2, 1fr);
-    @include adaptiveValue('column-gap', 20, 10);
-    @include adaptiveValue('row-gap', 20, 18);
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 20);
-    }
-    @media (max-width: $md2) {
-      grid-template-columns: repeat(1, 1fr);
-    }
-    @media (max-width: $md3) {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    @media (max-width: $md5) {
-      grid-template-columns: repeat(1, 1fr);
-    }
+    color: var(--cod-gray);
+
+    text-transform: uppercase;
   }
 
-  &__checkbox {
+  &__total-price {
+    @include sg-26-700;
+
+    color: var(--cod-gray);
   }
 
-  &__requisites {
-    line-height: 170%;
-    color: var(--third-color);
+  /* =========================
+     SECTION
+  ========================= */
+
+  &__section {
+    padding-top: 24px;
   }
+
+  &__section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    margin-bottom: 10px;
+  }
+
+  &__section-title {
+    @include ibm-12-700;
+
+    color: var(--cod-gray);
+
+    text-transform: uppercase;
+  }
+
+  &__required {
+    @include ibm-11-700;
+
+    color: var(--copper);
+  }
+
+  /* =========================
+     TRADE LINK
+  ========================= */
+
+  &__trade {
+    width: 100%;
+  }
+
+  &__hint {
+    margin: 8px 0 0;
+
+    @include ibm-14-400;
+
+    color: var(--makara);
+  }
+
+  /* =========================
+     BALANCE
+  ========================= */
+
+  &__balance {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-top: 24px;
+
+    padding: 18px;
+
+    border: 1px solid var(--cod-gray-07);
+
+    border-radius: 18px;
+
+    background: var(--merino);
+  }
+
+  &__balance-info {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+
+    gap: 4px;
+  }
+
+  &__balance-label {
+    @include ibm-12-700;
+
+    color: var(--cod-gray);
+
+    text-transform: uppercase;
+  }
+
+  &__balance-hint {
+    @include ibm-12-400;
+
+    color: var(--makara);
+  }
+
+  &__balance-value {
+    flex: 0 0 auto;
+
+    @include sg-20-700;
+
+    color: var(--cod-gray);
+  }
+
+  /* =========================
+     WARNING
+  ========================= */
+
+  &__warning {
+    margin-top: 18px;
+
+    padding: 18px;
+
+    border: 2px solid var(--copper);
+
+    border-radius: 22px;
+
+    background: rgba(255, 249, 242, 0.72);
+  }
+
+  &__warning-head {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    @include ibm-12-700;
+
+    color: var(--hairy-heath);
+  }
+
+  &__warning-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 20px;
+
+    width: 20px;
+    height: 20px;
+
+    border-radius: 50%;
+
+    background: var(--rope);
+
+    color: var(--janna);
+
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 700;
+  }
+
+  &__warning-text {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+
+    gap: 4px;
+
+    margin: 14px 0;
+
+    @include ibm-14-400;
+
+    color: var(--hairy-heath);
+  }
+
+  &__warning-price {
+    font-weight: 700;
+
+    color: var(--hairy-heath);
+  }
+
+  &__topup {
+    width: fit-content;
+  }
+
+  /* =========================
+     ERROR
+  ========================= */
 
   &__error {
-    margin-bottom: 8px;
+    margin-top: 16px;
   }
 
-  &__methods {
-    flex: 1 1 100%;
-    justify-content: flex-end;
-    display: flex;
-    flex-wrap: wrap;
-    @include adaptiveValue('row-gap', 20, 4);
-    @include adaptiveValue('margin-left', -10, 2);
-    @include adaptiveValue('margin-right', -10, 2);
-  }
+  /* =========================
+     PAY
+  ========================= */
 
-  &__method {
-    position: relative;
-    flex: 0 1 50%;
+  &__pay {
     width: 100%;
 
-    @include adaptiveValue('padding-left', 10, 2);
-    @include adaptiveValue('padding-right', 10, 2);
-    height: fit-content;
-    white-space: nowrap !important;
-    @media (max-width: 1099.98px) {
-      flex: 1 1 100%;
-    }
-    @media (max-width: $md2) {
-      flex: 0 1 50%;
-    }
-    @media (max-width: $md6) {
-      flex: 1 1 100%;
-    }
-    &_image {
-      position: relative;
+    margin-top: 20px;
 
-      :deep(.checkout__submit) {
-        position: relative;
-        overflow: hidden;
-      }
+    &:disabled {
+      opacity: 0.5;
 
-      :deep(.checkout__submit .btn__text) {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-      }
+      cursor: default;
     }
-  }
-  &__submit {
-    &-image {
-      position: absolute;
-      inset: 0;
-
-      width: 100%;
-      height: 100%;
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-      }
-    }
-  }
-  &__text {
   }
 }
 
-.warn {
-  display: flex;
-  gap: 9px;
-  margin-top: 10px;
+/* =========================
+   TABLET
+========================= */
 
-  &__image {
-    min-width: 16px;
-    height: 16px;
+@media (max-width: $md2) {
+  .checkout {
+    padding: 22px;
   }
+}
 
-  &__text {
-    display: block;
-    min-width: 0;
+/* =========================
+   MOBILE
+========================= */
 
-    overflow-wrap: anywhere;
-    word-break: break-word;
+@media (max-width: $md3) {
+  .checkout {
+    position: static;
 
-    font-size: 12px;
-    line-height: 150%;
-    color: var(--secondary-color);
+    padding: 24px;
+
+    border-radius: 24px;
   }
+}
 
-  &__link {
-    display: inline;
+@media (max-width: $md5) {
+  .checkout {
+    margin-right: -10px;
+    margin-left: -10px;
 
-    color: var(--link-color);
-    border-bottom: 1px solid inherit;
+    padding: 18px 14px;
 
-    transition: color 0.3s ease;
+    border-radius: 20px;
 
-    @media (any-hover: hover) {
-      &:hover {
-        color: var(--hint-primary-color);
-      }
+    &__balance {
+      align-items: flex-start;
+      flex-direction: column;
+
+      gap: 12px;
+
+      padding: 15px;
+
+      border-radius: 16px;
+    }
+
+    &__warning {
+      border-radius: 17px;
     }
   }
 }

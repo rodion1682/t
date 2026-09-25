@@ -1,180 +1,195 @@
 <template>
-  <div class="cart">
+  <main class="cart">
     <div class="cart__inner _cnt">
-      <div class="cart__top">
-        <button
-          v-if="false"
-          class="cart__back"
-          type="button"
-          @click="goToMarket"
-        >
-          <SvgIcon class="cart__back-icon" :icon="ChevronDownIcon" />
-          <div class="cart__bacl-text">{{ $t('Back to market') }}</div>
-        </button>
-        <div class="cart__title _h2">
-          {{ $t('CART') }}
-          <div v-if="false" class="cart__title-count">
-            ({{ cartStore.cartItemsCount }}
-            {{ cartStore.cartItemsCount > 1 ? $t('items') : $t('item') }})
-          </div>
+      <div class="cart__heading">
+        <div class="cart__eyebrow">
+          {{ $t('Market') }}
         </div>
-        <BaseButton
-          v-if="!cartStore.isEmpty && false"
-          type="button"
-          variant="hint"
-          class="cart__clear"
-          :disabled="cartStore.isLoading"
-          @click="clearCart"
-        >
-          {{ $t('Clear cart') }}
-        </BaseButton>
+
+        <h1 class="cart__title">
+          {{ $t('Cart') }}
+        </h1>
       </div>
-      <template v-if="cartStore.isLoading">
-        <LoadingSpinner class="cart__loading" />
-      </template>
-      <template v-else-if="!cartStore.isEmpty">
-        <div class="cart__content">
-          <CartItemsList class="cart__items" />
-          <CartForm @top-up-click="$emit('top-up-click')" class="cart__form" />
-        </div>
-      </template>
-      <template v-else-if="cartStore.isEmpty">
-        <div class="cart__empty empty">
-          <div class="empty__text">
-            {{
-              $t('Cart is empty now. Explore the Shop and add something here.')
-            }}
-          </div>
-          <RouterLink class="empty__link" :to="marketRoute">
-            <BaseButton variant="bordered">{{ $t('browse skins') }}</BaseButton>
-          </RouterLink>
-        </div>
-      </template>
+
+      <LoadingSpinner v-if="cartStore.isLoading" class="cart__loading" />
+
+      <div v-else-if="cartStore.isEmpty" class="cart__empty empty">
+        <h2 class="empty__title">
+          {{ $t('Your cart is empty') }}
+        </h2>
+
+        <p class="empty__text">
+          {{ $t('Explore the marketplace and add skins you like.') }}
+        </p>
+
+        <RouterLink :to="marketRoute" class="empty__link">
+          <BaseButton>
+            {{ $t('Browse skins') }}
+          </BaseButton>
+        </RouterLink>
+      </div>
+
+      <div v-else class="cart__content">
+        <CartItemsList class="cart__items" />
+
+        <CartForm
+          class="cart__checkout"
+          @top-up-click="$emit('top-up-click')"
+        />
+      </div>
     </div>
-  </div>
+  </main>
 </template>
 
 <script setup>
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { RouterLink } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
-import SvgIcon from '@/components/icons/SvgIcon.vue'
-import { ChevronDownIcon } from '@/components/icons/index.js'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+
 import { useGame } from '@/composables/useGame'
-import { useToast } from '@/composables/useToast'
+
 import { useCartStore } from '@/stores/cart'
-import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+
 import CartForm from './components/CartForm.vue'
 import CartItemsList from './components/CartItemsList.vue'
 
+defineEmits(['top-up-click'])
+
 const cartStore = useCartStore()
-const toast = useToast()
-const router = useRouter()
-const { t } = useI18n()
 
 const { marketRoute } = useGame()
-
-defineEmits(['checkout-open', 'top-up-click'])
-
-const goToMarket = () => {
-  router.push(marketRoute.value)
-}
-
-const clearCart = async () => {
-  const { success, error } = await cartStore.clearCart()
-
-  if (success) {
-    toast.success(t('Cart cleared'))
-    return
-  }
-
-  toast.error(error || t('Failed to clear cart'))
-}
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
-@use '@/assets/styles/media' as *;
 @use '@/assets/styles/fonts' as *;
+@use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
 .cart {
-  @include adaptiveValue('padding-top', 20, 25);
-  @include adaptiveValue('padding-bottom', 130, 25);
   display: flex;
-  flex: 1 1 100%;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+
+  flex: 1 1 auto;
+
   width: 100%;
+
+  @include adaptiveValue('padding-top', 50, 25);
+
+  @include adaptiveValue('padding-bottom', 110, 40);
+
   &__inner {
     width: 100%;
   }
 
-  &__top {
+  &__heading {
     &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 18);
+      @include adaptiveValue('margin-bottom', 34, 22);
     }
+  }
+
+  &__eyebrow {
+    margin-bottom: 10px;
+
+    @include ibm-12-700;
+
+    color: var(--makara);
+
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   &__title {
-    text-align: center;
+    margin: 0;
+
+    @include sg-44-700;
+
+    color: var(--cod-gray);
+
+    text-transform: uppercase;
   }
 
   &__loading {
-    margin: auto;
-    display: flex;
-    justify-self: center;
+    margin: 100px auto;
   }
 
   &__content {
-    @media (min-width: $md3) {
-      display: flex;
-      @include adaptiveValue('gap', 20, 10, 1440, 992, 1);
-    }
-    @media (max-width: $md5) {
-      margin-left: -10px;
-      margin-right: -10px;
-    }
+    display: grid;
+
+    grid-template-columns:
+      minmax(0, 1.65fr)
+      minmax(360px, 1fr);
+
+    align-items: start;
+
+    @include adaptiveValue('gap', 40, 20);
   }
 
-  &__items {
-    flex: 0 1 41%;
-    @media (max-width: $md2) {
-      flex: 0 1 50%;
-    }
-    @media (max-width: $md3) {
-      &:not(:last-child) {
-        margin-bottom: 15px;
-      }
-    }
-  }
-
-  &__form {
-    flex: 0 1 59%;
-    height: fit-content;
-    @media (max-width: $md2) {
-      flex: 0 1 50%;
-    }
-  }
-
-  &__empty {
+  &__items,
+  &__checkout {
+    min-width: 0;
   }
 }
 
 .empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+
+  min-height: 380px;
+
+  padding: 40px 20px;
+
+  border-radius: 30px;
+
+  background: var(--merino);
+
+  text-align: center;
+
+  &__title {
+    margin: 0 0 10px;
+
+    @include sg-26-700;
+
+    color: var(--cod-gray);
+  }
+
   &__text {
-    text-align: center;
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 40, 20);
-    }
+    max-width: 440px;
+
+    margin: 0 0 24px;
+
+    @include ibm-14-400;
+
+    color: var(--makara);
   }
 
   &__link {
     display: block;
-    max-width: 267px;
-    margin: 0 auto;
+
+    width: fit-content;
+  }
+}
+
+@media (max-width: $md2) {
+  .cart {
+    &__content {
+      grid-template-columns:
+        minmax(0, 1.35fr)
+        minmax(330px, 1fr);
+
+      gap: 20px;
+    }
+  }
+}
+
+@media (max-width: $md3) {
+  .cart {
+    &__content {
+      grid-template-columns: 1fr;
+    }
   }
 }
 </style>

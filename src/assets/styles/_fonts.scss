@@ -119,6 +119,15 @@
   color: var(--makara);
 }
 
+@mixin ibm-11-400 {
+  font-family: var(--font-ibm-plex);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.88px;
+  color: var(--makara);
+}
+
 // space grotesk
 
 @mixin sg-44-700 {

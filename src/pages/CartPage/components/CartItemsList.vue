@@ -1,112 +1,81 @@
 <template>
-  <div class="list" v-bind="attrs">
-    <BaseButton
-      v-if="false"
-      type="button"
-      variant="transparent"
-      class="list__clear"
-      @click="clearCart"
-    >
-      {{ $t('Clear all cart') }}
-    </BaseButton>
-
-    <div class="list__list">
-      <div
-        v-for="item in cartStore.items"
-        :key="item?.item_id"
-        class="list__item"
+  <section class="cart-list">
+    <div class="cart-list__items">
+      <article
+        v-for="row in cartStore.items"
+        :key="row.item_id"
+        class="cart-list__item"
       >
-        <div class="list__about">
-          <div v-if="item.item?.img_url" class="list__img _ibg-contain">
-            <div class="list__bg _ibg-contain">
-              <img src="@/assets/img/card-bg.svg" />
-            </div>
-            <img
-              :src="getImageUrl(item.item.img_url)"
-              :alt="item.item?.title"
-            />
-          </div>
-
-          <div class="list__meta">
-            <div
-              v-if="getItemWeapon(item.item) && false"
-              class="list__meta-sub"
-            >
-              {{ getItemWeapon(item.item) }}
-            </div>
-
-            <div class="list__meta-name">
-              {{ getItemName(item.item) }}
-            </div>
-
-            <CartQuantity
-              v-if="false"
-              :model-value="getItemQuantity(item)"
-              :loading="cartStore.isItemLoading(item?.item_id)"
-              class="list__quantity"
-              @change="quantity => updateItemQuantity(item?.item_id, quantity)"
-            />
-          </div>
-        </div>
-
-        <div class="list__prices">
-          <PriceFormatter
-            reverse
-            class="list__coin"
-            :price="item?.item?.internal_price"
-            skip-conversion
-          />
-
-          <PriceFormatter
-            v-if="false"
-            class="list__fiat"
-            :price="item?.item?.fiat_price"
-            is-currency
-            size="size-12"
-          />
-        </div>
-
-        <BaseButton
-          variant="delete"
+        <button
           type="button"
-          class="list__remove"
-          :disabled="cartStore.isItemLoading(item?.item_id)"
-          @click="removeItem(item?.item_id)"
+          class="cart-list__product"
+          @click="openProduct(row.item)"
         >
-          <SvgIcon :icon="TrashIcon" class="list__remove-icon" />
-        </BaseButton>
-      </div>
+          <div class="cart-list__visual">
+            <img
+              v-if="getImage(row.item)"
+              :src="getImage(row.item)"
+              :alt="getTitle(row.item)"
+              loading="lazy"
+            />
+          </div>
+
+          <div class="cart-list__meta">
+            <div class="cart-list__title">
+              {{ getTitle(row.item) }}
+            </div>
+
+            <div v-if="getExterior(row.item)" class="cart-list__exterior">
+              {{ getExterior(row.item) }}
+            </div>
+          </div>
+        </button>
+
+        <div class="cart-list__right">
+          <PriceFormatter
+            :price="getPrice(row.item)"
+            reverse
+            skip-conversion
+            is-currency
+            class="cart-list__price"
+          />
+
+          <button
+            type="button"
+            class="cart-list__remove"
+            :disabled="cartStore.isItemLoading(row.item_id)"
+            @click="removeItem(row.item_id)"
+          >
+            <SvgIcon :icon="TrashIcon" class="cart-list__remove-icon" />
+
+            <span>
+              {{ $t('Delete') }}
+            </span>
+          </button>
+        </div>
+      </article>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup>
-import BaseButton from '@/components/base/BaseButton.vue'
+import { useRouter } from 'vue-router'
+
+import PriceFormatter from '@/components/PriceFormatter.vue'
+
 import { TrashIcon } from '@/components/icons'
 import SvgIcon from '@/components/icons/SvgIcon.vue'
-import PriceFormatter from '@/components/PriceFormatter.vue'
+
 import { useCartStore } from '@/stores/cart'
-import { useAttrs } from 'vue'
-import CartQuantity from './CartQuantity.vue'
 
-defineOptions({
-  inheritAttrs: false,
-})
-
-defineEmits(['remove'])
-
-const attrs = useAttrs()
+const router = useRouter()
 
 const cartStore = useCartStore()
 
 const VITE_STATIC_DOMAIN = import.meta.env.VITE_STATIC_DOMAIN || ''
 
-const getImageUrl = url => {
-  return `${VITE_STATIC_DOMAIN}${url}`
-}
-
-const cleanTitle = title => {
-  return String(title || '')
+const cleanTitle = value => {
+  return String(value || '')
     .replace(/StatTrak™\s*/gi, '')
     .replace(/Souvenir\s*/gi, '')
     .replace(/★\s*/g, '')
@@ -114,177 +83,312 @@ const cleanTitle = title => {
     .trim()
 }
 
-const getItemExterior = item => {
-  const title = item?.title || ''
+const getTitle = item => {
+  return cleanTitle(item?.title || item?.name || '')
+}
 
-  const match = title.match(/\(([^)]+)\)\s*$/)
+const getExterior = item => {
+  const direct = item?.exterior_name || item?.exterior
 
-  if (match) {
-    return `(${match[1].trim()})`
+  if (direct) {
+    return direct
   }
 
-  return item?.exterior ? `(${item.exterior})` : ''
+  const match = String(item?.title || '').match(/\(([^)]+)\)\s*$/)
+
+  return match?.[1] || item?.quality || ''
 }
 
-const getItemName = item => {
-  const title = cleanTitle(item?.title || '')
-    .replace(/\s*\(([^)]+)\)\s*$/, '')
-    .trim()
+const getImage = item => {
+  const url = item?.img_url || ''
 
-  const [, skinName] = title.split('|').map(part => part.trim())
+  if (!url) {
+    return ''
+  }
 
-  return skinName || title
+  if (/^https?:\/\//i.test(url)) {
+    return url
+  }
+
+  return `${VITE_STATIC_DOMAIN}${url}`
 }
 
-const getItemWeapon = item => {
-  const title = cleanTitle(item?.title || '')
-    .replace(/\s*\(([^)]+)\)\s*$/, '')
-    .trim()
-
-  const [weapon] = title.split('|').map(part => part.trim())
-
-  return weapon || ''
+const getPrice = item => {
+  return Number(item?.internal_price ?? item?.price ?? 0)
 }
 
-const getItemQuantity = item => {
-  return cartStore.getQty(item?.item_id, item?.count || 1)
+const openProduct = item => {
+  if (!item?.id) {
+    return
+  }
+
+  router.push({
+    name: 'ProductDetailsPage',
+
+    params: {
+      productId: item.id,
+    },
+
+    query: {
+      from: router.currentRoute.value.fullPath,
+    },
+  })
 }
 
-const updateItemQuantity = async (itemId, quantity) => {
-  if (!itemId) return
+const removeItem = async id => {
+  if (!id) {
+    return
+  }
 
-  await cartStore.updateQuantity(itemId, quantity)
-}
-
-const removeItem = async itemId => {
-  await cartStore.removeFromCart(itemId)
-}
-
-const clearCart = async () => {
-  await cartStore.clearCart()
+  await cartStore.removeFromCart(id)
 }
 </script>
 
 <style lang="scss" scoped>
 @use '@/assets/styles/mixins' as *;
-@use '@/assets/styles/media' as *;
 @use '@/assets/styles/fonts' as *;
+@use '@/assets/styles/media' as *;
 @use '@/assets/styles/components/classes' as *;
 
-.list {
-  &__clear {
-    width: fit-content;
-    margin-left: auto;
-  }
+.cart-list {
+  padding: 10px;
 
-  &__list {
+  border-radius: 30px;
+
+  background: rgba(235, 221, 197, 0.55);
+
+  &__items {
+    display: flex;
+    flex-direction: column;
+
+    gap: 4px;
   }
 
   &__item {
     display: flex;
     align-items: center;
-    column-gap: 20px;
-    row-gap: 10px;
     justify-content: space-between;
-    border-radius: 20px;
-    @include adaptiveValue('padding-left', 30, 10, 1440, 992, 1);
-    @include adaptiveValue('padding-right', 30, 10, 1440, 992, 1);
-    @include adaptiveValue('padding-top', 20, 10);
-    @include adaptiveValue('padding-bottom', 20, 10);
-    border: 1px solid var(--border-primary-color);
-    background-color: var(--bg-third-color);
-    &:not(:last-child) {
-      @include adaptiveValue('margin-bottom', 20, 4);
-    }
-    @media (max-width: $md2) {
-      flex-wrap: wrap;
-    }
-    @media (max-width: $md3) {
-      flex-wrap: nowrap;
-    }
-    @media (max-width: $md5) {
-      flex-wrap: wrap;
-    }
+
+    gap: 20px;
+
+    min-height: 122px;
+
+    @include adaptiveValue('padding', 20, 12);
+
+    border-radius: 25px;
+
+    background: var(--merino);
   }
 
-  &__about {
-    flex: 0 1 50%;
+  &__product {
     display: flex;
-    overflow: hidden;
+    align-items: center;
 
-    @include adaptiveValue('gap', 30, 15, 1440, 992, 1);
+    flex: 1 1 auto;
 
-    @media (max-width: $md2) {
-      flex: 1 1 100%;
-    }
+    min-width: 0;
 
-    @media (max-width: $md3) {
-      flex: 0 1 50%;
-    }
-    @media (max-width: $md5) {
-      flex: 1 1 100%;
-    }
+    gap: 24px;
+
+    padding: 0;
+
+    border: 0;
+
+    background: transparent;
+
+    text-align: left;
+
+    cursor: pointer;
   }
 
-  &__img {
-    flex: 0 0 80px;
-    min-width: 80px;
-    height: 60px;
-    position: relative;
-  }
-  &__bg {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 70px;
-    height: 56px;
+  &__visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 96px;
+
+    width: 96px;
+    height: 82px;
+
+    padding: 10px;
+
+    border-radius: 22px;
+
+    background: linear-gradient(145deg, #c9985f, #e8b875);
+
+    img {
+      display: block;
+
+      width: 100%;
+      height: 100%;
+
+      object-fit: contain;
+
+      filter: drop-shadow(0 6px 5px rgba(32, 30, 29, 0.14));
+    }
   }
 
   &__meta {
-    flex: 1 1 auto;
     min-width: 0;
+  }
+
+  &__title {
     overflow: hidden;
-    align-self: center;
 
-    &-name {
-      display: block;
-      width: 100%;
-      min-width: 0;
-      overflow: hidden;
+    @include ibm-14-400;
 
-      color: var(--primary-color);
+    color: var(--cod-gray);
 
-      white-space: nowrap;
-      text-overflow: ellipsis;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    transition: color 0.3s ease;
+
+    &:not(:last-child) {
+      margin-bottom: 8px;
     }
   }
 
-  &__quantity {
-    width: fit-content;
-  }
-
-  &__prices {
-    @media (max-width: $md5) {
-      display: flex;
-      gap: 15px;
+  &__product {
+    @media (any-hover: hover) {
+      &:hover {
+        .cart-list__title {
+          color: var(--copper);
+        }
+      }
     }
   }
 
-  &__coin {
-    color: var(--primary-color);
+  &__exterior {
+    @include ibm-13-700;
+
+    color: var(--kelp);
   }
 
-  &__fiat {
+  &__right {
+    display: flex;
+    align-items: center;
+
+    flex: 0 0 auto;
+
+    gap: 28px;
+  }
+
+  &__price {
+    color: var(--cod-gray);
   }
 
   &__remove {
-    width: fit-content;
-    @include adaptiveValue('min-width', 50, 40);
-    border-color: transparent !important;
-    &-icon {
-      min-width: 18px;
-      height: 18px;
+    display: inline-flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 8px 0;
+
+    border: 0;
+
+    background: transparent;
+
+    @include ibm-12-700;
+
+    color: var(--rope);
+
+    cursor: pointer;
+
+    transition: color 0.3s ease;
+
+    @media (any-hover: hover) {
+      &:hover:not(:disabled) {
+        color: var(--hairy-heath);
+      }
+    }
+
+    &:disabled {
+      opacity: 0.5;
+
+      cursor: default;
+    }
+  }
+
+  &__remove-icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: $md2) {
+  .cart-list {
+    &__item {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    &__right {
+      justify-content: space-between;
+
+      width: 100%;
+
+      padding-left: 120px;
+    }
+  }
+}
+
+@media (max-width: $md3) {
+  .cart-list {
+    &__item {
+      flex-direction: row;
+      align-items: center;
+    }
+
+    &__right {
+      width: auto;
+
+      padding-left: 0;
+    }
+  }
+}
+
+@media (max-width: $md5) {
+  .cart-list {
+    margin-right: -10px;
+    margin-left: -10px;
+
+    padding: 6px;
+
+    border-radius: 20px;
+
+    &__item {
+      align-items: flex-start;
+      flex-direction: column;
+
+      gap: 14px;
+
+      min-height: 0;
+
+      border-radius: 17px;
+    }
+
+    &__product {
+      width: 100%;
+
+      gap: 14px;
+    }
+
+    &__visual {
+      flex-basis: 78px;
+
+      width: 78px;
+      height: 68px;
+
+      border-radius: 15px;
+    }
+
+    &__right {
+      justify-content: space-between;
+
+      width: 100%;
     }
   }
 }

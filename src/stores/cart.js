@@ -1,391 +1,447 @@
-// stores/cart.js
-import axios from '@/plugins/axios'
 import { defineStore } from 'pinia'
+
+import axios from '@/plugins/axios'
+
 import { useAuthStore } from './auth'
 
-const toInt = (v, d = 0) => {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : d
+const toNumber = (value, fallback = 0) => {
+  const number = Number(value)
+
+  return Number.isFinite(number) ? number : fallback
 }
 
-const clampQty = q => Math.max(1, toInt(q, 1))
+const normalizeQuantity = value => {
+  return Math.max(1, Math.trunc(toNumber(value, 1)))
+}
 
-/**
- * Normalize backend cart row to always have numeric "count".
- * (Backend might send cnt/count/qty/quantity etc)
- */
 const normalizeCartRow = row => {
-  const count = clampQty(
-    row?.count ?? row?.cnt ?? row?.qty ?? row?.quantity ?? 1,
-  )
-  return { ...row, count }
+  const itemId = row?.item_id ?? row?.item?.id ?? row?.id
+
+  return {
+    ...row,
+
+    item_id: itemId,
+
+    count: normalizeQuantity(
+      row?.count ?? row?.cnt ?? row?.qty ?? row?.quantity ?? 1,
+    ),
+  }
 }
 
-/**
- * Build payload for backend; sends multiple aliases for qty
- * to maximize compatibility with whatever backend expects.
- */
-const buildCartAddPayload = (itemId, count) => ({
-  id: itemId,
-  count,
-  qty: count,
-  quantity: count,
-})
+const getRowPrice = row => {
+  return toNumber(
+    row?.item?.internal_price ??
+      row?.item?.price ??
+      row?.internal_price ??
+      row?.price ??
+      0,
+  )
+}
 
 export const useCartStore = defineStore('cart', {
   state: () => ({
     items: [],
-    unavailableItems: [],
-    isLoading: false,
-    itemsLoading: {},
-    error: null,
-    itemErrors: {},
-    isUniqueItems: false,
 
-    // UI qty source of truth (key: item_id, value: qty)
+    unavailableItems: [],
+
+    isLoading: false,
+
+    itemsLoading: {},
+
+    error: null,
+
+    itemErrors: {},
+
     uiQty: {},
   }),
 
   getters: {
-    cartItemsCount: state => state.items.length,
-    isEmpty: state => state.items.length === 0,
-    hasError: state => !!state.error,
+    cartItemsCount: state => {
+      return (state.items || []).reduce((total, row) => {
+        const quantity = state.uiQty?.[row.item_id] ?? row.count ?? 1
 
-    /**
-     * Always compute totals from UI qty (not server row.count)
-     */
-    cartTotal: state =>
-      (state.items || []).reduce((total, row) => {
-        const price = toInt(row?.item?.price, 0)
-        const count = clampQty(state.uiQty?.[row.item_id] ?? row?.count ?? 1)
-        return total + price * count
-      }, 0),
+        return total + normalizeQuantity(quantity)
+      }, 0)
+    },
 
-    currencySymbol: () => '€',
+    cartUniqueItemsCount: state => {
+      return state.items.length
+    },
 
-    isItemInCart: state => itemId =>
-      (state.items || []).some(item => item.item_id === itemId),
+    isEmpty: state => {
+      return state.items.length === 0
+    },
 
-    isItemLoading: state => itemId => !!state.itemsLoading[itemId],
+    hasError: state => {
+      return Boolean(state.error)
+    },
 
-    getItemError: state => itemId => state.itemErrors[itemId] || null,
+    cartTotal: state => {
+      return (state.items || []).reduce((total, row) => {
+        const quantity = normalizeQuantity(
+          state.uiQty?.[row.item_id] ?? row.count ?? 1,
+        )
 
-    /**
-     * Get qty from UI source of truth (fallback to row.count if missing)
-     */
+        return total + getRowPrice(row) * quantity
+      }, 0)
+    },
+
+    cartItemIds: state => {
+      return (state.items || []).map(row => row.item_id).filter(Boolean)
+    },
+
+    isItemInCart: state => itemId => {
+      return (state.items || []).some(
+        row => String(row.item_id) === String(itemId),
+      )
+    },
+
+    isItemLoading: state => itemId => {
+      return Boolean(state.itemsLoading[itemId])
+    },
+
+    getItemError: state => itemId => {
+      return state.itemErrors[itemId] || null
+    },
+
     getQty:
       state =>
       (itemId, fallback = 1) => {
-        const q = Number(state.uiQty?.[itemId])
-        if (Number.isFinite(q) && q >= 1) return q
-        return clampQty(fallback)
+        const quantity = state.uiQty?.[itemId]
+
+        if (quantity != null) {
+          return normalizeQuantity(quantity)
+        }
+
+        return normalizeQuantity(fallback)
       },
   },
 
   actions: {
-    // ---------------- UI QTY HELPERS ----------------
-    setUiQty(itemId, qty) {
-      if (!itemId) return
-      const next = clampQty(qty)
-      this.uiQty = { ...this.uiQty, [itemId]: next }
+    setLoading(value) {
+      this.isLoading = value
+    },
+
+    setItemLoading(itemId, value) {
+      this.itemsLoading = {
+        ...this.itemsLoading,
+
+        [itemId]: value,
+      }
+    },
+
+    setItemError(itemId, message) {
+      const errors = {
+        ...this.itemErrors,
+      }
+
+      if (message) {
+        errors[itemId] = message
+      } else {
+        delete errors[itemId]
+      }
+
+      this.itemErrors = errors
+    },
+
+    setUiQty(itemId, quantity) {
+      if (!itemId) {
+        return
+      }
+
+      this.uiQty = {
+        ...this.uiQty,
+
+        [itemId]: normalizeQuantity(quantity),
+      }
     },
 
     removeUiQty(itemId) {
-      if (!itemId) return
-      if (this.uiQty?.[itemId] == null) return
-      const next = { ...this.uiQty }
-      delete next[itemId]
-      this.uiQty = next
-    },
-
-    /**
-     * Apply uiQty onto items[].count so templates that use row.count
-     * still show the correct qty (and never flicker).
-     */
-    applyUiQtyToItems() {
-      if (!Array.isArray(this.items) || this.items.length === 0) return
-      const next = this.items.map(r => {
-        const normalized = normalizeCartRow(r)
-        const ui = this.uiQty?.[normalized.item_id]
-        if (ui != null) return { ...normalized, count: clampQty(ui) }
-        return normalized
-      })
-      this.items = next
-    },
-
-    /**
-     * Initialize uiQty for newly loaded items (does NOT overwrite existing uiQty)
-     */
-    initUiQtyFromItems(items = []) {
-      const next = { ...this.uiQty }
-      for (const row of items || []) {
-        const id = row?.item_id
-        if (!id) continue
-        if (next[id] == null) next[id] = clampQty(row?.count ?? 1)
+      const next = {
+        ...this.uiQty,
       }
+
+      delete next[itemId]
+
       this.uiQty = next
     },
 
-    // ---------------- LOAD CART ----------------
+    applyCart(items = []) {
+      const normalized = items.map(normalizeCartRow)
+
+      const nextQty = {}
+
+      normalized.forEach(row => {
+        const existing = this.uiQty?.[row.item_id]
+
+        nextQty[row.item_id] = normalizeQuantity(existing ?? row.count ?? 1)
+      })
+
+      this.uiQty = nextQty
+
+      this.items = normalized.map(row => ({
+        ...row,
+
+        count: nextQty[row.item_id],
+      }))
+    },
+
     async fetchCartContent() {
       const authStore = useAuthStore()
+
       if (!authStore.isAuthenticated) {
         this.resetState()
-        return { success: true }
+
+        return {
+          success: true,
+        }
       }
 
       try {
         this.error = null
-        this.isLoading = true
+        this.setLoading(true)
 
-        const response = await axios.get('/cart/contents')
+        const { data } = await axios.get('/cart/contents')
 
-        if (
-          response?.data?.status === 'OK' &&
-          Array.isArray(response.data.cart)
-        ) {
-          // normalize server rows
-          const serverItems = (response.data.cart || []).map(normalizeCartRow)
-
-          // keep any existing uiQty, only add missing keys
-          this.items = serverItems
-          this.initUiQtyFromItems(this.items)
-
-          // force UI qty onto rows to avoid server "1" flicker
-          this.applyUiQtyToItems()
-
-          // remove uiQty for items no longer in cart
-          const serverIds = new Set(this.items.map(r => r.item_id))
-          const nextQty = { ...this.uiQty }
-          for (const key of Object.keys(nextQty)) {
-            const id = Number.isFinite(Number(key)) ? Number(key) : key
-            if (!serverIds.has(id) && !serverIds.has(key)) {
-              delete nextQty[key]
-            }
-          }
-          this.uiQty = nextQty
-
-          return { success: true }
+        if (data?.status !== 'OK' || !Array.isArray(data.cart)) {
+          throw new Error(data?.message || 'Failed to load cart')
         }
 
-        this.items = []
-        throw new Error(
-          response?.data?.message || 'Invalid response format from server',
-        )
-      } catch (err) {
-        console.error('Error fetching cart content:', err)
-        this.items = []
+        this.applyCart(data.cart)
+
+        this.unavailableItems = Array.isArray(data.unavailable)
+          ? data.unavailable
+          : []
+
+        return {
+          success: true,
+        }
+      } catch (error) {
         this.error =
-          err?.response?.data?.message || err?.message || 'Failed to fetch cart'
-        return { success: false, error: this.error }
+          error?.response?.data?.message ||
+          error?.message ||
+          'Failed to fetch cart'
+
+        return {
+          success: false,
+
+          error: this.error,
+        }
       } finally {
-        this.isLoading = false
+        this.setLoading(false)
       }
     },
 
-    // ---------------- ADD ----------------
     async addToCart(itemId, quantity = 1) {
       const authStore = useAuthStore()
+
       if (!authStore.isAuthenticated) {
         return {
           success: false,
-          isAlreadyInCart: false,
-          message: 'please_login_to_add_to_cart',
+
           isUnauthorized: true,
+
+          message: 'please_login_to_add_to_cart',
         }
       }
 
-      const addQty = this.isUniqueItems ? 1 : clampQty(quantity)
+      if (this.isItemInCart(itemId)) {
+        return {
+          success: false,
 
-      const existingRow = (this.items || []).find(r => r.item_id === itemId)
-      const currentQty = clampQty(
-        this.uiQty?.[itemId] ?? existingRow?.count ?? 1,
-      )
+          isAlreadyInCart: true,
 
-      // if item is already in cart -> increment, else set addQty
-      const nextQty = this.isItemInCart(itemId) ? currentQty + addQty : addQty
+          message: 'Item is already in cart',
+        }
+      }
+
+      const count = normalizeQuantity(quantity)
 
       try {
+        this.error = null
+
         this.setItemLoading(itemId, true)
 
-        // keep UI in sync
-        this.setUiQty(itemId, nextQty)
-        this.applyUiQtyToItems()
+        const { data } = await axios.post('/cart/add', {
+          id: itemId,
+          count,
+          qty: count,
+          quantity: count,
+        })
 
-        const payload = buildCartAddPayload(itemId, nextQty)
-
-
-        const response = await axios.post('/cart/add', payload)
-
-        if (response?.data?.status === 'OK') {
-          const serverItems = (response.data.cart || []).map(normalizeCartRow)
-          this.items = serverItems
-
-          // keep ui qty and enforce it (backend might still respond with 1)
-          this.initUiQtyFromItems(this.items)
-          this.setUiQty(itemId, nextQty)
-          this.applyUiQtyToItems()
-
-          return { success: true, isAlreadyInCart: false, message: 'OK' }
+        if (data?.status !== 'OK') {
+          throw new Error(data?.message || 'Failed to add item')
         }
 
-        throw new Error(response?.data?.message || 'Failed to add item to cart')
+        if (Array.isArray(data.cart)) {
+          this.applyCart(data.cart)
+        } else {
+          await this.fetchCartContent()
+        }
+
+        return {
+          success: true,
+        }
       } catch (error) {
-        const msg =
+        const message =
           error?.response?.data?.message ||
           error?.message ||
           'Failed to add item'
-        return { success: false, isAlreadyInCart: false, message: msg }
+
+        this.setItemError(itemId, message)
+
+        return {
+          success: false,
+          message,
+        }
       } finally {
         this.setItemLoading(itemId, false)
       }
     },
 
     async updateQuantity(itemId, quantity) {
-      const authStore = useAuthStore()
-      if (!authStore.isAuthenticated) return { success: false }
-
-      const count = clampQty(quantity)
-
-      // update UI source-of-truth first
-      this.setUiQty(itemId, count)
-
-      //  keep items[] in sync for rendering
-      {
-        const idx = this.items.findIndex(r => r.item_id === itemId)
-        if (idx !== -1) {
-          const next = [...this.items]
-          next[idx] = { ...normalizeCartRow(next[idx]), count }
-          this.items = next
+      if (!itemId) {
+        return {
+          success: false,
         }
       }
+
+      const count = normalizeQuantity(quantity)
+
+      this.setUiQty(itemId, count)
 
       try {
         this.setItemLoading(itemId, true)
 
-        const payload = buildCartAddPayload(itemId, count)
-        // Debug if needed:
-        // console.log('[cart] updateQuantity sending:', payload)
+        this.setItemError(itemId, null)
 
-        const response = await axios.post('/cart/add', payload)
+        const { data } = await axios.post('/cart/add', {
+          id: itemId,
+          count,
+          qty: count,
+          quantity: count,
+        })
 
-        if (response?.data?.status === 'OK') {
-          // refresh items from server BUT do not trust counts
-          const serverItems = (response.data.cart || []).map(normalizeCartRow)
-          this.items = serverItems
-
-          // make sure uiQty has keys for all items
-          this.initUiQtyFromItems(this.items)
-
-          // enforce UI qty on all items (prevents server resetting to 1)
-          this.applyUiQtyToItems()
-
-          this.setItemError(itemId, null)
-          return { success: true }
+        if (data?.status !== 'OK') {
+          throw new Error(data?.message || 'Failed to update quantity')
         }
 
-        throw new Error(response?.data?.message || 'Failed to update quantity')
+        if (Array.isArray(data.cart)) {
+          this.applyCart(data.cart)
+        }
+
+        return {
+          success: true,
+        }
       } catch (error) {
-        const msg =
+        const message =
           error?.response?.data?.message ||
           error?.message ||
           'Failed to update quantity'
-        this.setItemError(itemId, msg)
-        return { success: false, error: msg }
+
+        this.setItemError(itemId, message)
+
+        return {
+          success: false,
+          error: message,
+        }
       } finally {
         this.setItemLoading(itemId, false)
       }
     },
 
-    // ---------------- REMOVE ----------------
     async removeFromCart(itemId) {
       const authStore = useAuthStore()
-      if (!authStore.isAuthenticated) return { success: false }
+
+      if (!authStore.isAuthenticated) {
+        return {
+          success: false,
+        }
+      }
 
       try {
-        this.error = null
         this.setItemLoading(itemId, true)
 
-        const response = await axios.post('/cart/remove', { id: itemId })
+        this.setItemError(itemId, null)
 
-        if (response?.data?.status === 'OK') {
-          const serverItems = (response.data.cart || []).map(normalizeCartRow)
-          this.items = serverItems
+        const { data } = await axios.post('/cart/remove', {
+          id: itemId,
+        })
 
-          // remove ui qty for deleted item
-          this.removeUiQty(itemId)
-
-          // init missing + enforce ui qty
-          this.initUiQtyFromItems(this.items)
-          this.applyUiQtyToItems()
-
-          this.setItemError(itemId, null)
-          return { success: true }
+        if (data?.status !== 'OK') {
+          throw new Error(data?.message || 'Failed to remove item')
         }
 
-        throw new Error(response?.data?.message || 'Unknown error occurred')
-      } catch (err) {
-        const msg =
-          err?.response?.data?.message ||
-          err?.message ||
+        this.removeUiQty(itemId)
+
+        if (Array.isArray(data.cart)) {
+          this.applyCart(data.cart)
+        } else {
+          this.items = this.items.filter(
+            row => String(row.item_id) !== String(itemId),
+          )
+        }
+
+        return {
+          success: true,
+        }
+      } catch (error) {
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
           'Failed to remove item'
-        this.error = msg
-        this.setItemError(itemId, msg)
-        return { success: false, error: msg }
+
+        this.setItemError(itemId, message)
+
+        return {
+          success: false,
+          error: message,
+        }
       } finally {
         this.setItemLoading(itemId, false)
       }
     },
 
-    // ---------------- CLEAR ----------------
     async clearCart() {
-      const authStore = useAuthStore()
-      if (!authStore.isAuthenticated) {
-        this.resetState()
-        return { success: true }
-      }
-
       try {
-        this.error = null
-        this.isLoading = true
+        this.setLoading(true)
 
-        await axios.post('/cart/clear')
+        const { data } = await axios.post('/cart/clear')
+
+        if (data?.status && data.status !== 'OK') {
+          throw new Error(data.message || 'Failed to clear cart')
+        }
+
         this.resetState()
-        return { success: true }
-      } catch (err) {
-        const msg =
-          err?.response?.data?.message || err?.message || 'Failed to clear cart'
-        this.error = msg
-        return { success: false, error: msg }
+
+        return {
+          success: true,
+        }
+      } catch (error) {
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          'Failed to clear cart'
+
+        this.error = message
+
+        return {
+          success: false,
+          error: message,
+        }
       } finally {
-        this.isLoading = false
+        this.setLoading(false)
       }
     },
 
-    // ---------------- HELPERS ----------------
     resetState() {
       this.items = []
       this.unavailableItems = []
+      this.isLoading = false
+      this.itemsLoading = {}
       this.error = null
       this.itemErrors = {}
-      this.itemsLoading = {}
       this.uiQty = {}
-    },
-
-    setItemLoading(itemId, status) {
-      if (!itemId) return
-      this.itemsLoading = { ...this.itemsLoading, [itemId]: status }
-    },
-
-    setItemError(itemId, errorMessage) {
-      if (!itemId) return
-      if (errorMessage) {
-        this.itemErrors = { ...this.itemErrors, [itemId]: errorMessage }
-      } else if (this.itemErrors[itemId]) {
-        const next = { ...this.itemErrors }
-        delete next[itemId]
-        this.itemErrors = next
-      }
     },
   },
 })
