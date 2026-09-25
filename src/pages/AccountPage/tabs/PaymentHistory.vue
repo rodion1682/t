@@ -1,14 +1,14 @@
 <template>
   <ProfileTableLayout
-    showType
-    showCoinAmount
+    show-type
+    show-data-column
+    :show-skin-name="false"
+    :show-price="true"
+    :show-coin-amount="false"
     :rows="paginatedRows"
     :is-loading="isLoading"
-    :empty-text="$t('No transactions found')"
-    :loading-text="`${$t('Loading')}...`"
     :total-pages="totalPages"
     :current-page="currentPage"
-    total-label="Total"
     @update:current-page="onPageChange"
   />
 </template>

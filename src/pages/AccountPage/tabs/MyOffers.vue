@@ -17,50 +17,19 @@
 
     <ProfileTableLayout
       show-skin-name
+      show-data-column
       show-action
+      :show-price="true"
+      :show-order-image="true"
       :rows="paginatedRows"
       :is-loading="isLoading"
-      :empty-text="$t('No offers found')"
-      :loading-text="`${$t('Loading')}...`"
       :total-pages="totalPages"
       :current-page="currentPage"
       @update:current-page="onPageChange"
     >
       <template #action="{ row }">
-        <BaseButton
-          v-if="row.statusKey === 'offer'"
-          class="offers__button offers__button_offer"
-          variant="bordered"
-          @click="openDetailsModal(row)"
-        >
+        <BaseButton variant="bordered" @click="handleOffer(row)">
           {{ $t('Offer') }}
-        </BaseButton>
-
-        <BaseButton
-          v-else-if="row.statusKey === 'awaiting_item' && row.companyTradeUrl"
-          class="offers__button offers__button_offer"
-          variant="white"
-          @click="openDetailsModal(row)"
-        >
-          {{ $t('Send item') }}
-        </BaseButton>
-
-        <BaseButton
-          v-else-if="row.statusKey === 'ready_for_payout'"
-          class="offers__button offers__button_payout"
-          variant="primary"
-          @click="openPayout(row)"
-        >
-          {{ $t('Payout') }}
-        </BaseButton>
-
-        <BaseButton
-          v-else
-          class="offers__button offers__button_regular"
-          variant="white-bordered"
-          @click="openDetailsModal(row)"
-        >
-          {{ $t('Details') }}
         </BaseButton>
       </template>
     </ProfileTableLayout>
